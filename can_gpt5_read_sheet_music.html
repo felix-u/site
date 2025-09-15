@@ -17,20 +17,21 @@
         <p>
             I wanted to test GPT-5's musical acumen by feeding it scanned sheet music --- first page with music, cropping out the title, author, and
             any other "metadata". I opened the PDFs in-browser and took PNG screenshots (as of this writing, GPT-5's free tier can't take in PDFs anyway).
-            For each piece, I used the same prompt:
+            For each piece, I opened a new private chat and used this prompt:
         </p>
         <p class="chat">
             What are the title and author of the piece corresponding to the attached score? In one sentence, explain how you identified these. Your output format should be as follows:
             [Title], [Author]. [One-sentence explanation]
         </p>
         <p>
-            in a new chatgpt.com chat, logged out. The images on this page are the exact ones I fed to ChatGPT, whose responses
+            The images on this page are the exact ones I fed to ChatGPT, whose responses
             are reproduced in full. The images were input with the same filename "piece.png".
             The scores used are all in the public domain, sourced from
             <a href="https://imslp.org/wiki/Main_Page">IMSLP</a>.
         </p>
 
         <h3>Level 1: Famous classical pieces</h6>
+
         <p>
             To start off easy, I looked at the <a href="https://en.wikipedia.org/wiki/The_50_Greatest_Pieces_of_Classical_Music">
             track listing</a> of the London Philharmonic's <em>50 Greatest Pieces of Classical Music</em> and chose the three pieces
@@ -66,6 +67,49 @@
             <strong>Musical Offering (Musikalisches Opfer), BWV 1079, Johann Sebastian Bach.</strong>
             I identified this from the distinctive layout and notation style of the Ricercar a 6, a well-known fugue from this work,
             as well as the handwriting and instrumentation matching Bach’s autograph manuscripts.
+        </p>
+
+        <p>
+            1/3 is surprisingly bad. Not only are these extremely well-known pieces, whose chord progressions and other musical qualities have presumably been discussed to death online, but
+            even with the title and author cropped out, there's a lot of information present which could help GPT-5 identify the piece. All three images contain the clefs, instruments, time, and key.
+            The explanation given by ChatGPT isn't necessarily relevant, and theoretically, the identification could hit or miss based on factors not mentioned in the output
+            justification.
+            The Beethoven, which ChatGPT idenfitied correctly, does have something missing from the others --- its precise tempo. To check whether this made the difference, I repeated the test,
+            prepending this to my prompt:
+        </p>
+        <p class="chat">
+            This piece has a tempo of [TEMPO].
+        </p>
+        <p>
+            The results:
+        </p>
+        <ol>
+            <li><div>
+                <p>Beethoven</p>
+                <p class="chat incorrect">
+                    I couldn’t conclusively identify the piece based on the score image and tempo alone.
+                    The orchestration (timpani, clarini, corni, flauti, oboi, clarinetti, fagotti, strings) and the tempo marking
+                    “Allº con brio d = 108” are consistent with 18th‑century classical symphonies, but I found no match in my searches.
+                </p>
+            </div></li>
+            <li><div>
+                <p>Vivaldi</p>
+                <p class="chat incorrect">
+                    The piece corresponding to the attached score is <strong>"Allegro" by Joseph-Hector Fiocco</strong>.
+                    This identification is based on the tempo marking "Allegro" and the context provided by the attached score,
+                    which aligns with Fiocco's "Allegro for Violin and Piano".
+                </p>
+            </div></li>
+                <p>Pachelbel</p>
+                <p class="chat incorrect">
+                    <strong>The Musical Offering, BWV 1079 – Ricercar a 6, Johann Sebastian Bach.</strong>
+                    I identified this by recognizing the distinctive six-voice ricercar score layout, handwriting style, and the Staatsbibliothek Berlin stamp associated with Bach’s manuscripts.
+                </p>
+            </div></li>
+        </ol>
+        <p>
+            Now we're 0/3 after having confused ChatGPT about the Beethoven piece. The "Allegro" tempo really misled ChatGPT on Vivaldi, giving us a new wrong answer, while the guess and justification
+            for Pachelbel remain the same (though mentioning the library stamp only the second time).
         </p>
     <main>
 </body>
