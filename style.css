@@ -19,7 +19,7 @@ h2 {
     text-align: center;
 }
 
-main {
+main, img {
     margin: 0 auto;
     max-width: 80ch;
     line-height: 1.4;
@@ -29,4 +29,27 @@ main {
 
 main p {
     margin-bottom: 1rem;
+}
+
+img {
+    max-width: 36%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.chat {
+    border: 2px solid #aaa;
+    border-radius: 8px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.correct {
+    background-color: #d0f0d0;
+}
+
+.incorrect {
+    background-color: #f0d8d0;
 }

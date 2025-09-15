@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 
+<!--2025-09-15-->
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,10 +15,59 @@
     <h2>Can GPT-5 recognise songs from untitled sheet music?</h2>
     <main>
         <p>
-            TODO
+            I wanted to test GPT-5's musical acumen by feeding it scanned sheet music --- first page with music, cropping out the title, author, and
+            any other "metadata". I opened the PDFs in-browser and took PNG screenshots (as of this writing, GPT-5's free tier can't take in PDFs anyway).
+            For each piece, I used the same prompt:
+        </p>
+        <p class="chat">
+            What are the title and author of the piece corresponding to the attached score? In one sentence, explain how you identified these. Your output format should be as follows:
+            [Title], [Author]. [One-sentence explanation]
+        </p>
+        <p>
+            in a new chatgpt.com chat, logged out. The images on this page are the exact ones I fed to ChatGPT, whose responses
+            are reproduced in full. The images were input with the same filename "piece.png".
+            The scores used are all in the public domain, sourced from
+            <a href="https://imslp.org/wiki/Main_Page">IMSLP</a>.
+        </p>
+
+        <h3>Level 1: Famous classical pieces</h6>
+        <p>
+            To start off easy, I looked at the <a href="https://en.wikipedia.org/wiki/The_50_Greatest_Pieces_of_Classical_Music">
+            track listing</a> of the London Philharmonic's <em>50 Greatest Pieces of Classical Music</em> and chose the three pieces
+            from their first 10 which I thought were most universally famous (IMSLP pages linked):
+            <ol>
+                <li><a href="https://imslp.org/wiki/Symphony_No.5%2C_Op.67_(Beethoven%2C_Ludwig_van)">Beethoven's Symphony No. 5 in C minor, op. 67</a></li>
+                <li><a href="https://imslp.org/wiki/Violin_Concerto_in_E_major,_RV_269_(Vivaldi,_Antonio)">Vivaldi's The Four Seasons, op. 8, "Spring"</a></li>
+                <li><a href="https://imslp.org/wiki/Canon_and_Gigue_in_D_major,_P.37_(Pachelbel,_Johann)">Pachelbel's Canon in D Major</a></li>
+            </ol>
+            Here are the images used, and ChatGPT's response for each:
+        </p>
+        <details>
+            <summary>Beethoven, from the PDF hosted <a href="https://imslp.org/wiki/Special:ImagefromIndex/943147/hfzq">here</a> (click to expand input image)</summary>
+            <img src="can_gpt5_read_sheet_music/beethoven_no_5_start.png">
+        </details>
+        <p class="chat correct">
+            <strong>Symphony No. 5 in C minor, Op. 67, Ludwig van Beethoven</strong>.
+            I identified this piece from the iconic rhythmic motif (short-short-short-long) and orchestration at the beginning of the score, which matches the opening of Beethoven's Fifth Symphony.
+        </p>
+        <details>
+            <summary>Vivaldi, from the PDF hosted <a href="https://imslp.org/wiki/Special:ImagefromIndex/747617/hfzq">here</a> (click to expand input image)</summary>
+            <img src="can_gpt5_read_sheet_music/vivaldi_spring_start.png">
+        </details>
+        <p class="chat incorrect">
+            <strong>Concerto in A Major "Die Relinge", TWV 51:A4 by Georg Philipp Telemann.</strong>
+            I recognised it from the instrumentation header “Violino principale / Violini I & II / Viola / Basso continuo,” the style of the ritornello texture, and matching it with Telemann’s “Die Relinge” concerto catalogue entries.
+        </p>
+        <details>
+            <summary>Pachelbel, from the PDF hosted <a href="https://imslp.org/wiki/Special:ImagefromIndex/346264/hfzq">here</a> (click to expand input image)</summary>
+            <img src="can_gpt5_read_sheet_music/pachelbel_canon_start.png">
+        </details>
+        <p class="chat incorrect">
+            <strong>Musical Offering (Musikalisches Opfer), BWV 1079, Johann Sebastian Bach.</strong>
+            I identified this from the distinctive layout and notation style of the Ricercar a 6, a well-known fugue from this work,
+            as well as the handwriting and instrumentation matching Bach’s autograph manuscripts.
         </p>
     <main>
-
 </body>
 
 </html>
