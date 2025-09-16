@@ -13,6 +13,7 @@
 <body>
     <h1><a href="index.html">felix-u</a></h1>
     <h2>Can GPT-5 recognise songs from untitled sheet music?</h2>
+    <h2>(basically, no)</h2>
     <main>
         <p>
             I wanted to test GPT-5's musical acumen by feeding it scanned sheet music --- first page with music, cropping out the title, author, and
@@ -30,7 +31,7 @@
             <a href="https://imslp.org/wiki/Main_Page">IMSLP</a>.
         </p>
 
-        <h3>Level 1: Famous classical pieces</h6>
+        <h3>Level 1: Famous classical pieces</h3>
 
         <p>
             To start off easy, I looked at the <a href="https://en.wikipedia.org/wiki/The_50_Greatest_Pieces_of_Classical_Music">
@@ -86,7 +87,7 @@
         <ol>
             <li><div>
                 <p>Beethoven</p>
-                <p class="chat incorrect">
+                <p class="chat puzzled">
                     I couldn’t conclusively identify the piece based on the score image and tempo alone.
                     The orchestration (timpani, clarini, corni, flauti, oboi, clarinetti, fagotti, strings) and the tempo marking
                     “Allº con brio d = 108” are consistent with 18th‑century classical symphonies, but I found no match in my searches.
@@ -100,6 +101,7 @@
                     which aligns with Fiocco's "Allegro for Violin and Piano".
                 </p>
             </div></li>
+            <li><div>
                 <p>Pachelbel</p>
                 <p class="chat incorrect">
                     <strong>The Musical Offering, BWV 1079 – Ricercar a 6, Johann Sebastian Bach.</strong>
@@ -109,7 +111,79 @@
         </ol>
         <p>
             Now we're 0/3 after having confused ChatGPT about the Beethoven piece. The "Allegro" tempo really misled ChatGPT on Vivaldi, giving us a new wrong answer, while the guess and justification
-            for Pachelbel remain the same (though mentioning the library stamp only the second time).
+            for Pachelbel remain the same (though the library stamp mention is new).
+        </p>
+        <p>
+            Could extra information, like orchestration and tempo, be confusing ChatGPT?
+        </p>
+
+        <h3>Level 2: Famous classical pieces, second page</h3>
+
+        <p>
+            At this point I didn't have high hopes, but I wanted to try the second pages of each of the scores. Perhaps ChatGPT was being distracted by the extra information and would do better with
+            just the melody. Again, these are world-famous pieces; surely GPT's training includes lots of content about this music.
+        </p>
+        <details>
+            <summary>Beethoven, second page (click to expand input image)</summary>
+            <img src="can_gpt5_read_sheet_music/beethoven_no_5_second.png">
+        </details>
+        <p class="chat puzzled">
+            I don’t know what piece that is.
+        </p>
+        <details>
+            <summary>Vivaldi, second page (click to expand input image)</summary>
+            <img src="can_gpt5_read_sheet_music/vivaldi_spring_second.png">
+        </details>
+        <p class="chat incorrect">
+            <strong>[Concerto for Two Violins in D minor, BWV 1043], [Johann Sebastian Bach].</strong>
+            I identified this piece by recognizing the distinctive notation and structure typical of Bach's concertos, particularly the presence of two solo violins and the specific BWV catalog number.
+        </p>
+        <details>
+            <summary>Pachelbel, second page (click to expand input image)</summary>
+            <img src="can_gpt5_read_sheet_music/pachelbel_canon_second.png">
+        </details>
+        <p class="chat puzzled">
+            I can't identify the title and author of the piece from the score provided.
+        </p>
+        <p>
+            We've regressed to clear hallucinations (what BWV catalogue number? There's none I can see on that page of the Vivaldi score). At least the two admissions of ignorance are preferable
+            to confidently wrong guesses, as we've mostly been getting so far.
+        </p>
+
+        <h3>Level 0: Famous classical pieces, first five notes</h3>
+        <p>
+            So, was all hope lost? I certainly doubted there was a point to introducing more difficult scores. Instead, I wanted to check that ChatGPT could even read the notation, so I fed in the
+            first pages again and asked for the first five notes. My prompt was:
+        </p>
+        <p class="chat">
+            What are the first five notes of this piece? Output only the notes, separated by commas.
+        </p>
+        <ol>
+            <li><div>
+                <p>Beethoven (close, but it's A, A, A, F, G)</p>
+                <p class="chat incorrect">
+                    G, G, G, Eb, F
+                </p>
+            </div></li>
+            <li><div>
+                <p>Vivaldi</p>
+                <p class="chat puzzled">
+                    I don’t know.
+                </p>
+            </div></li>
+            <li><div>
+                <p>Pachelbel</p>
+                <p class="chat puzzled">
+                    I don’t know.
+                </p>
+            </div></li>
+        </ol>
+        <p>
+            Pretty awful. Anecdotally, I tried just this exercise with Gemini 2.5 Flash and it was confidently incorrect in all three cases. I didn't even obscure the filenames, which included the author
+            and title, but it relied exclusively on image analysis and didn't verify with any internet searches.
+        </p>
+        <p>
+            Unfortunately, despite large advances in multimodality, it seems from these simple tests there's a ways to go before musicians can use these models for work involving sheet music.
         </p>
     <main>
 </body>
