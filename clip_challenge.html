@@ -62,6 +62,44 @@
         code {
             white-space: pre-wrap;
         }
+
+        .results_gallery {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 40px;
+          // max-width: 800px;
+          margin: 0 auto;
+        }
+
+        .single_result {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .single_result img {
+          width: 300px;
+          display: block;
+          margin-bottom: 0px;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          // font-family: sans-serif;
+          // font-size: 14px;
+        }
+
+        th, td {
+          border: 1px solid #ccc;
+          padding: 4px 8px;
+          text-align: left;
+        }
+
+        thead {
+          background: #e0e0e0;
+        }
     </style>
 </head>
 
@@ -273,7 +311,87 @@ free_captions, free_caption_scores = find_best_free_caption_for_images(
 
         <h3>Results</h3>
 
-<!--        TODO(felix): table of top results, matched to each image-->
+        <div class="result_gallery">
+            <p class="chat correct">"a scenic view of sun rise migration", 0.3162</p>
+            <div class="single_result">
+                <img src="https://images.pexels.com/photos/36744/agriculture-arable-clouds-countryside.jpg">
+                <table>
+                    <thead><tr><th>"W"</th><th>Score</th><th>"A photo of a W"</th><th>Score</th></tr></thead>
+                    <tr><td>sunset</td><td>0.2656</td><td><strong>A photo of a sunset</strong></td><td><strong>0.2788</strong></td></tr>
+                    <tr><td>sunrise</td><td>0.2651</td><td>A photo of a sunrise</td><td>0.2786</td></tr>
+                    <tr><td>sun</td><td>0.2612</td><td>A photo of a sun</td><td>0.2722</td></tr>
+                    <tr><td>dawn</td><td>0.2590</td><td>A photo of a dawn</td><td>0.2703</td></tr>
+                    <tr><td>migration</td><td>0.2542</td><td>A photo of a sol</td><td>0.2686</td></tr>
+                    <tr><td>sol</td><td>0.2507</td><td>A photo of a eve</td><td>0.2668</td></tr>
+                    <tr><td>rise</td><td>0.2489</td><td>A photo of a rising</td><td>0.2659</td></tr>
+                    <tr><td>evening</td><td>0.2489</td><td>A photo of a migration</td><td>0.2634</td></tr>
+                </table>
+            </div>
+
+            <p class="chat correct">"a photo of diesel portrait dog", 0.3303</p>
+            <div class="single_result">
+                <img src="https://images.pexels.com/photos/825947/pexels-photo-825947.jpeg">
+                <table>
+                    <thead><tr><th>"W"</th><th>Score</th><th>"A photo of a W"</th><th>Score</th></tr></thead>
+                    <tr><td>dog</td><td>0.2827</td><td><strong>A photo of a dog</strong></td><td><strong>0.2925</strong></td></tr>
+                    <tr><td>max</td><td>0.2769</td><td>A photo of a pit</td><td>0.2898</td></tr>
+                    <tr><td>lycos</td><td>0.2715</td><td>A photo of a breed</td><td>0.2898</td></tr>
+                    <tr><td>diesel</td><td>0.2700</td><td>A photo of a grey</td><td>0.2871</td></tr>
+                    <tr><td>portrait</td><td>0.2698</td><td>A photo of a ears</td><td>0.2866</td></tr>
+                    <tr><td>duke</td><td>0.2695</td><td>A photo of a gray</td><td>0.2861</td></tr>
+                    <tr><td>ears</td><td>0.2688</td><td>A photo of a dogs</td><td>0.2852</td></tr>
+                    <tr><td>nova</td><td>0.2681</td><td>A photo of a floyd</td><td>0.2812</td></tr>
+                </table>
+            </div>
+
+            <p class="chat correct">"a photo of woods fog autumn bench", 0.3647</p>
+            <div class="single_result">
+                <img src="https://images.pexels.com/photos/34044163/pexels-photo-34044163.jpeg">
+                <table>
+                    <thead><tr><th>"W"</th><th>Score</th><th>"A photo of a W"</th><th>Score</th></tr></thead>
+                    <tr><td>forest</td><td>0.2678</td><td><strong>A photo of a woods</strong></td><td><strong>0.2922</strong></td></tr>
+                    <tr><td>woods</td><td>0.2666</td><td>A photo of a forest</td><td>0.2847</td></tr>
+                    <tr><td>deer</td><td>0.2661</td><td>A photo of a forests</td><td>0.2834</td></tr>
+                    <tr><td>bench</td><td>0.2637</td><td>A photo of a forestry</td><td>0.2827</td></tr>
+                    <tr><td>fog</td><td>0.2617</td><td>A photo of a bench</td><td>0.2820</td></tr>
+                    <tr><td>forests</td><td>0.2610</td><td>A photo of a hunting</td><td>0.2817</td></tr>
+                    <tr><td>forestry</td><td>0.2576</td><td>A photo of a fog</td><td>0.2817</td></tr>
+                    <tr><td>autumn</td><td>0.2571</td><td>A photo of a hunt</td><td>0.2773</td></tr>
+                </table>
+            </div>
+
+            <p class="chat correct">"a close-up of wallace morris advertisement puppy", 0.3635</p>
+            <div class="single_result">
+                <img src="https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg">
+                <table>
+                    <thead><tr><th>"W"</th><th>Score</th><th>"A photo of a W"</th><th>Score</th></tr></thead>
+                    <tr><td>wallace</td><td>0.2607</td><td><strong>A photo of a cartoon</strong></td><td><strong>0.2688</strong></td></tr>
+                    <tr><td>morris</td><td>0.2598</td><td>A photo of a chester</td><td>0.2671</td></tr>
+                    <tr><td>advertisement</td><td>0.2595</td><td>A photo of a gordon</td><td>0.2661</td></tr>
+                    <tr><td>lycos</td><td>0.2549</td><td>A photo of a springer</td><td>0.2642</td></tr>
+                    <tr><td>dog</td><td>0.2542</td><td>A photo of a pointer</td><td>0.2639</td></tr>
+                    <tr><td>puppy</td><td>0.2524</td><td>A photo of a murphy</td><td>0.2625</td></tr>
+                    <tr><td>gauge</td><td>0.2507</td><td>A photo of a illustrations</td><td>0.2625</td></tr>
+                    <tr><td>watson</td><td>0.2500</td><td>A photo of a wallace</td><td>0.2620</td></tr>
+                </table>
+            </div>
+
+            <p class="chat correct">"a photo of room bed accommodations", 0.3323</p>
+            <div class="single_result">
+                <img src="https://live.staticflickr.com/2404/2020522557_d1aa0a1066_k.jpg">
+                <table>
+                    <thead><tr><th>"W"</th><th>Score</th><th>"A photo of a W"</th><th>Score</th></tr></thead>
+                    <tr><td>bedrooms</td><td>0.2861</td><td><strong>A photo of a suite</strong></td><td><strong>0.3018</strong></td></tr>
+                    <tr><td>beds</td><td>0.2825</td><td>A photo of a bedrooms</td><td>0.2998</td></tr>
+                    <tr><td>room</td><td>0.2800</td><td>A photo of a accommodations</td><td>0.2969</td></tr>
+                    <tr><td>bedroom</td><td>0.2793</td><td>A photo of a bedroom</td><td>0.2969</td></tr>
+                    <tr><td>rooms</td><td>0.2791</td><td>A photo of a suites</td><td>0.2913</td></tr>
+                    <tr><td>accommodations</td><td>0.2744</td><td>A photo of a bedding</td><td>0.2905</td></tr>
+                    <tr><td>accommodation</td><td>0.2717</td><td>A photo of a stayed</td><td>0.2896</td></tr>
+                    <tr><td>bed</td><td>0.2710</td><td>A photo of a lodging</td><td>0.2893</td></tr>
+                </table>
+            </div>
+        </div>
 
 <!--        TODO(felix): discussion-->
 <!--            "a photo of W" better than W-->
