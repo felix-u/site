@@ -583,7 +583,7 @@ sims = dataset_image_features @ global_caption_features.T  # [N_images, N_captio
         </p>
         <p>
             Why does "a scenic view of hoped php camel" show up in 4/8 of the best pairs I found using this process? I think this is showing us two downsides of CLIP.
-            Firstly, "camel" might be a confusing enough visual concept that it ends up sending the vector in the general animation direction. The real labels of the afflicted images are indeed
+            Firstly, "camel" might be a confusing enough visual concept that it ends up sending the vector in the general animal direction. The real labels of the afflicted images are indeed
             "bird", "deer", and "horse" twice. This might give the caption a headstart. Then, "a scenic view" could be one of those phrases which increases similarity purely because it's
             more like human-authored captions, similar to what we saw with "a photo of a" in Part 1. I'm not sure whether this is quite it, since "hoped php" is rather baffling and the
             32x32-pixel resolution of these images can't be helping (CLIP can handle at least 224x224 pixels.
