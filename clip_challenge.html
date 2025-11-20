@@ -393,40 +393,213 @@ free_captions, free_caption_scores = find_best_free_caption_for_images(
             </div>
         </div>
 
-<!--        TODO(felix): discussion-->
-<!--            "a photo of W" better than W-->
-<!--            free constructions better than others-->
-<!--            matches that CLIP has been trained on human-written captions, which are natural and irregular-->
+        <p>
+            The first thing that jumps out is that the top randomly-generated caption of <= 8 words (chosen from 10,000 candidates and shown with a green background) scores higher than
+            the best simple caption for all five images. In the case of the dog cartoon image, this difference is almost a full 0.1.
+        </p>
+        <p>
+            Then, notice that the top "natural" constructions (beginning "A photo of a") also score higher than the top single-word captions in all cases. In the first two images the
+            relevant word is the same ("sunset", "dog"), but for the other images the top phrase caption uses a different word than the top single-word caption.
+            What can we glean from "a photo of W" being consistently better than "W"? Since CLIP is trained on human-written captions, I think this shows that those do contain descriptions
+            of the image's medium as well as the subject. In that case, CLIP would consistently assign more meaning to "A photo of X" than "X" by itself,
+            which is what happens here over and over again.
+        </p>
+        <p>
+            That turn of phrase also has some semantic meaning, though, since the words are not the same between columns. I don't understand half the matches for the dog cartoon:
+            a photo of a "chester", "gordon", "springer", "pointer", "murphy", yet those all score higher than anything in the single-word column, where those words don't even appear.
+            The way humans conceptualise and refer to content - is that a dog, or a photo of a dog? - clearly makes some difference in the training data.
+        </p>
+        <p>
+            Not only do the free captions score much higher than the "photo of X" options, but it's remarkable what associations are implied in these captions. For example:
+
+            <ul>
+                <li>The "migration" in the sun photo's caption must be referring to the backlit flock of birds.</li>
+                <li>The dog photo is definitely a professional "portrait". (Not sure about "diesel".)</li>
+                <li>Stunningly, "a photo of woods fog autumn bench" captures the correct season, the correct weather, the correct setting, <em>and</em> a wooden structure in the image.</li>
+                <li>I thought the dog cartoon resembled mid-century "advertisement" illustration style before seeing this caption! And while I haven't been able to work out why "morris" is in
+                    there, surely "wallace" refers to Gromit of <em>Wallace and Gromit</em>?
+                    <div class="single_result">
+                        <img src="clip_challenge/wallace_and_gromit.jpg">
+                        <img src="https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg">
+                    </div>
+                </li>
+                <li>"room bed accommodations" is hotel language, and this photo definitely shows a hotel room.</li>
+            </ul>
+        </p>
+        <p>
+            For such a simple technique, CLIP is showing a fascinating ability to relate map multiple orthogonal concepts ("advertisement" and "puppy", "fog" and "autumn", "dog" and "portrait")
+            across text and image inputs. This is obviously not "reasoning", but I was not expecting CLIP to be so semantically strong.
+        </p>
 
         <h2>Part 2: Search for Similarity</h2>
 
         <p>
-            The goal here was to find the pair of "regular" image (real photo, non-generated) and caption with the highest similarity, meaning they're as close as possible in CLIP-space.
-            I loaded 2,000 random images from the CIFAR-10 dataset (I ran out of VRAM when I tried to do more)
-            and generated 10,000 random captions from the same English word list I used previously,
-            encoding everything at once.
-            Building a 2,000x10,000 similarity matrix allowed me to find the best matches.
+            The next step was to find the pair of "regular" image (real photo, non-generated) and caption with the highest similarity, meaning they're as close as possible in CLIP-space.
         </p>
 
         <h3>Outline</h3>
 
-<!--        TODO(felix)-->
+        <ol>
+            <li>I loaded and encoded 2,000 random images from the CIFAR-10 dataset (I ran out of VRAM when I tried to do more).
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+NUM_DATASET_IMAGES = 2000
+NUM_GLOBAL_CAPTIONS = MAX_CAPTIONS
+
+print(f"\n[Part 2] loading CIFAR-10 and sampling {NUM_DATASET_IMAGES} images...")
+cifar10 = datasets.CIFAR10(root="data/cifar10", train=True, download=True)
+total = len(cifar10)
+if NUM_DATASET_IMAGES > total:
+    NUM_DATASET_IMAGES = total
+
+# random subset of CIFAR-10 indices
+subset_indices = torch.randperm(total)[:NUM_DATASET_IMAGES]
+
+# encode sampled images with CLIP
+dataset_image_tensors = []
+dataset_labels = []
+for index in tqdm(subset_indices, desc="Part 2: loading CIFAR images"):
+    image, label = cifar10[index.item()]
+    img_tensor = preprocess(image).unsqueeze(0).to(device)
+    dataset_image_tensors.append(img_tensor)
+    dataset_labels.append(label)
+
+dataset_image_batch = torch.cat(dataset_image_tensors, dim=0)
+
+print(f"[Part 2] encoding {NUM_DATASET_IMAGES} CIFAR-10 images with CLIP...")
+with torch.no_grad():
+    dataset_image_features = model.encode_image(dataset_image_batch.to(device))
+dataset_image_features = normalise_features(dataset_image_features)
+                    </code>
+                </details>
+                </li>
+            <li>Then I generated 10,000 random captions from the same English word list I used previously, encoding them all upfront.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+# build a global pool of random captions from the 10k-word list
+print(f"[Part 2] generating {NUM_GLOBAL_CAPTIONS} random captions...")
+global_captions = []
+prefixes = ["", "a photo of", "a close-up of", "a scenic view of"]
+
+for _ in tqdm(range(NUM_GLOBAL_CAPTIONS), desc="Part 2: generating captions"):
+    length = random.randint(2, MAX_CAPTION_WORDS)
+    length = min(length, len(word_list))
+    chosen_words = random.sample(word_list, length)
+    prefix = random.choice(prefixes)
+
+    if prefix:
+        caption = prefix + " " + " ".join(chosen_words)
+    else:
+        caption = " ".join(chosen_words)
+
+    global_captions.append(caption)
+
+# I encode the random captions once to reuse for all CIFAR images, because it'd be too expensive to generate unique ones for each image
+print("[Part 2] encoding random captions with CLIP...")
+global_caption_features = encode_texts_in_batches(model, global_captions, device)
+                    </code>
+                </details>
+                </li>
+            <li>Finally, building a 2,000x10,000 similarity matrix allowed me to find the best matches.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+# again, cosine similarity = dot product because everything is normalised
+print("[Part 2] computing global similarity matrix...")
+sims = dataset_image_features @ global_caption_features.T  # [N_images, N_captions]
+                    </code>
+                </details>
+                </li>
 
         <h3>Results</h3>
 
-<!--        TODO(felix): table of top matches and similarity values-->
+        <p>The top eight most similar image-caption pairs:</p>
 
-<!--        TODO(felix): discussion-->
+        <div class="result_gallery">
+            <div class="single_result chat" style="margin-bottom: 2em">
+                <img src="clip_challenge/top_0_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a scenic view of hoped php camel"</th></tr></thead>
+                    <tr><td>0.3286</td></tr>
+                    <tr><td>label="bird"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_1_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"trucks wallpapers adrian guyana"</th></tr></thead>
+                    <tr><td>0.3247</td></tr>
+                    <tr><td>label="truck"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_2_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a scenic view of ultram containers input danish"</th></tr></thead>
+                    <tr><td>0.3218</td></tr>
+                    <tr><td>label="truck"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_3_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a close-up of mix taxi from writers"</th></tr></thead>
+                    <tr><td>0.3218</td></tr>
+                    <tr><td>label="automobile"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_4_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a scenic view of hoped php camel"</th></tr></thead>
+                    <tr><td>0.3208</td></tr>
+                    <tr><td>label="deer"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_5_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a scenic view of hoped php camel"</th></tr></thead>
+                    <tr><td>0.3179</td></tr>
+                    <tr><td>label="horse"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_6_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a close-up of eyes basename mlb"</th></tr></thead>
+                    <tr><td>0.3159</td></tr>
+                    <tr><td>label="cat"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_7_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a scenic view of hoped php camel"</th></tr></thead>
+                    <tr><td>0.3145</td></tr>
+                    <tr><td>label="horse"</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <p>
+            No, none of these fare better than the highest score, 0.3647, in Part 1. The highest score here is 0.3286. In retrospect, I should've begun with the highest-scoring pair from Part 1
+            and done transformations on that. Instead, my approach at each caption generation was to randomly pick from a small list of prefixes -
+            none, "a photo of", "a close-up of", or "a scenic view of" - and then do the same random word selection I used for the free-caption portion of Part 1.
+        </p>
+        <p>
+            Why does "a scenic view of hoped php camel" show up in 4/8 of the best pairs I found using this process? I think this is showing us two downsides of CLIP.
+            Firstly, "camel" might be a confusing enough visual concept that it ends up sending the vector in the general animation direction. The real labels of the afflicted images are indeed
+            "bird", "deer", and "horse" twice. This might give the caption a headstart. Then, "a scenic view" could be one of those phrases which increases similarity purely because it's
+            more like human-authored captions, similar to what we saw with "a photo of a" in Part 1. I'm not sure whether this is quite it, since "hoped php" is rather baffling and the
+            32x32-pixel resolution of these images can't be helping (CLIP can handle at least 224x224 pixels.
+        </p>
+        <p>
+            Still, we once again observe semantic relevance, if less than in Part 1. "Truck" is correct for the second image, and "taxi" seems more accurate than the dataset's label
+            <em>automobile</em>. I'm impressed by the cat pair; ignoring "basename mlb", that <em>is</em> "a close-up of eyes".
+        </p>
 
         <h2>The "Modality Gap": Takeaways</h2>
 
-<!--        TODO(felix): bullet-point list-->
-
         <p>
-            The way CLIP was trained is pretty transparent in an exercise like this. The highest-scoring caption is not necessarily the most "sensible" human-readable one (though it's sometimes
+            CLIP's workings become more transparent in an exercise like this. The highest-scoring caption is not necessarily the most "sensible" human-readable one (though it's sometimes
             fairly intelligible), but rather the one whose words make its CLIP-space vector "point the same way" as the matching image's vector, in the dimensions that matter.
-            There is some semblance of meaning captured in these vectors, but I think it'd be a stretch to say they contain deep semantic information, like what can be extracted by a
-            multi-modal LLM.
+            There is some meaning captured in these vectors, with several impressively accurate pairings for a high-performance technique which was viable a few years before large language models.
+            However, CLIP obviously does not have the deep knowledge or semantic extraction capabilities of a (vastly more expensive) multi-modal LLM.
         </p>
     <main>
 </body>
