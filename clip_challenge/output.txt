@@ -1,0 +1,201 @@
+loading CLIP model...
+loading images...
+downloading image: https://images.pexels.com/photos/36744/agriculture-arable-clouds-countryside.jpg
+downloading image: https://images.pexels.com/photos/825947/pexels-photo-825947.jpeg
+downloading image: https://images.pexels.com/photos/34044163/pexels-photo-34044163.jpeg
+downloading image: https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg
+downloading image: https://live.staticflickr.com/2404/2020522557_d1aa0a1066_k.jpg
+loaded 5 images
+downloading word list from: https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english.txt
+loaded 10000 words
+encoding images...
+encoding single words as text...
+finding top 8 single words W for each image (max CLIP(I), CLIP(W))...
+encoding "A photo of a W" prompts...
+finding top 8 "A photo of a W" captions for each image...
+finding best free caption using up to 10000 random captions per image...
+searching free captions: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5/5 [00:16<00:00,  3.38s/it]
+
+[Part 2] loading CIFAR-10 and sampling 2000 images...
+Part 2: loading CIFAR images: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2000/2000 [00:01<00:00, 1361.31it/s]
+[Part 2] encoding 2000 CIFAR-10 images with CLIP...
+[Part 2] generating 10000 random captions...
+Part 2: generating captions: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 10000/10000 [00:00<00:00, 418125.85it/s]
+[Part 2] encoding random captions with CLIP...
+[Part 2] computing global similarity matrix...
+
+[Part 2] top image–caption pairs:
+Part 2: saving top-K pairs:   0%|                                                                                                                                                                 | 0/8 [00:00<?, ?it/s]Rank 1:
+                CIFAR-10 dataset index: 42564
+                CIFAR-10 class label:   bird (id=2)
+                Caption:                "a scenic view of hoped php camel"
+                Cosine similarity:      0.3286
+    Saved visualisation to top_0_free_pair.png
+
+        Rank 2:
+                CIFAR-10 dataset index: 48121
+                CIFAR-10 class label:   truck (id=9)
+                Caption:                "trucks wallpapers adrian guyana"
+                Cosine similarity:      0.3247
+    Saved visualisation to top_1_free_pair.png
+
+        Rank 3:
+                CIFAR-10 dataset index: 13704
+                CIFAR-10 class label:   truck (id=9)
+                Caption:                "a scenic view of ultram containers input danish"
+                Cosine similarity:      0.3218
+    Saved visualisation to top_2_free_pair.png
+
+        Rank 4:
+                CIFAR-10 dataset index: 22763
+                CIFAR-10 class label:   automobile (id=1)
+                Caption:                "a close-up of mix taxi from writers"
+                Cosine similarity:      0.3218
+    Saved visualisation to top_3_free_pair.png
+
+        Rank 5:
+                CIFAR-10 dataset index: 11914
+                CIFAR-10 class label:   deer (id=4)
+                Caption:                "a scenic view of hoped php camel"
+                Cosine similarity:      0.3208
+    Saved visualisation to top_4_free_pair.png
+
+        Rank 6:
+                CIFAR-10 dataset index: 37573
+                CIFAR-10 class label:   horse (id=7)
+                Caption:                "a scenic view of hoped php camel"
+                Cosine similarity:      0.3179
+    Saved visualisation to top_5_free_pair.png
+
+        Rank 7:
+                CIFAR-10 dataset index: 12155
+                CIFAR-10 class label:   cat (id=3)
+                Caption:                "a close-up of eyes basename mlb"
+                Cosine similarity:      0.3159
+    Saved visualisation to top_6_free_pair.png
+
+        Rank 8:
+                CIFAR-10 dataset index: 37898
+                CIFAR-10 class label:   horse (id=7)
+                Caption:                "a scenic view of hoped php camel"
+                Cosine similarity:      0.3145
+    Saved visualisation to top_7_free_pair.png
+
+Part 2: saving top-K pairs: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8/8 [00:00<00:00, 316.28it/s]
+
+=== results ===
+
+image 0: https://images.pexels.com/photos/36744/agriculture-arable-clouds-countryside.jpg
+        Top 8 single words W (CLIP(I), CLIP(W)):
+           1.          sunset  (score=0.2656)
+           2.         sunrise  (score=0.2651)
+           3.             sun  (score=0.2612)
+           4.            dawn  (score=0.2590)
+           5.       migration  (score=0.2542)
+           6.             sol  (score=0.2507)
+           7.            rise  (score=0.2489)
+           8.         evening  (score=0.2489)
+
+        Top 8 simple captions "A photo of a W":
+           1. "A photo of a sunset"  (score=0.2788)
+           2. "A photo of a sunrise"  (score=0.2786)
+           3. "A photo of a sun"  (score=0.2722)
+           4. "A photo of a dawn"  (score=0.2703)
+           5. "A photo of a sol"  (score=0.2686)
+           6. "A photo of a eve"  (score=0.2668)
+           7. "A photo of a rising"  (score=0.2659)
+           8. "A photo of a migration"  (score=0.2634)
+
+        Best free caption (from 10000 random candidates): "a scenic view of sun rise migration" (score=0.3162)
+
+image 1: https://images.pexels.com/photos/825947/pexels-photo-825947.jpeg
+        Top 8 single words W (CLIP(I), CLIP(W)):
+           1.             dog  (score=0.2827)
+           2.             max  (score=0.2769)
+           3.           lycos  (score=0.2715)
+           4.          diesel  (score=0.2700)
+           5.        portrait  (score=0.2698)
+           6.            duke  (score=0.2695)
+           7.            ears  (score=0.2688)
+           8.            nova  (score=0.2681)
+
+        Top 8 simple captions "A photo of a W":
+           1. "A photo of a dog"  (score=0.2925)
+           2. "A photo of a pit"  (score=0.2898)
+           3. "A photo of a breed"  (score=0.2898)
+           4. "A photo of a grey"  (score=0.2871)
+           5. "A photo of a ears"  (score=0.2866)
+           6. "A photo of a gray"  (score=0.2861)
+           7. "A photo of a dogs"  (score=0.2852)
+           8. "A photo of a floyd"  (score=0.2812)
+
+        Best free caption (from 10000 random candidates): "a photo of diesel portrait dog" (score=0.3303)
+
+image 2: https://images.pexels.com/photos/34044163/pexels-photo-34044163.jpeg
+        Top 8 single words W (CLIP(I), CLIP(W)):
+           1.          forest  (score=0.2678)
+           2.           woods  (score=0.2666)
+           3.            deer  (score=0.2661)
+           4.           bench  (score=0.2637)
+           5.             fog  (score=0.2617)
+           6.         forests  (score=0.2610)
+           7.        forestry  (score=0.2576)
+           8.          autumn  (score=0.2571)
+
+        Top 8 simple captions "A photo of a W":
+           1. "A photo of a woods"  (score=0.2922)
+           2. "A photo of a forest"  (score=0.2847)
+           3. "A photo of a forests"  (score=0.2834)
+           4. "A photo of a forestry"  (score=0.2827)
+           5. "A photo of a bench"  (score=0.2820)
+           6. "A photo of a hunting"  (score=0.2817)
+           7. "A photo of a fog"  (score=0.2817)
+           8. "A photo of a hunt"  (score=0.2773)
+
+        Best free caption (from 10000 random candidates): "a photo of woods fog autumn bench" (score=0.3647)
+
+image 3: https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg
+        Top 8 single words W (CLIP(I), CLIP(W)):
+           1.         wallace  (score=0.2607)
+           2.          morris  (score=0.2598)
+           3.   advertisement  (score=0.2595)
+           4.           lycos  (score=0.2549)
+           5.             dog  (score=0.2542)
+           6.           puppy  (score=0.2524)
+           7.           gauge  (score=0.2507)
+           8.          watson  (score=0.2500)
+
+        Top 8 simple captions "A photo of a W":
+           1. "A photo of a cartoon"  (score=0.2688)
+           2. "A photo of a chester"  (score=0.2671)
+           3. "A photo of a gordon"  (score=0.2661)
+           4. "A photo of a springer"  (score=0.2642)
+           5. "A photo of a pointer"  (score=0.2639)
+           6. "A photo of a murphy"  (score=0.2625)
+           7. "A photo of a illustrations"  (score=0.2625)
+           8. "A photo of a wallace"  (score=0.2620)
+
+        Best free caption (from 10000 random candidates): "a close-up of wallace morris advertisement puppy" (score=0.3635)
+
+image 4: https://live.staticflickr.com/2404/2020522557_d1aa0a1066_k.jpg
+        Top 8 single words W (CLIP(I), CLIP(W)):
+           1.        bedrooms  (score=0.2861)
+           2.            beds  (score=0.2825)
+           3.            room  (score=0.2800)
+           4.         bedroom  (score=0.2793)
+           5.           rooms  (score=0.2791)
+           6.  accommodations  (score=0.2744)
+           7.   accommodation  (score=0.2717)
+           8.             bed  (score=0.2710)
+
+        Top 8 simple captions "A photo of a W":
+           1. "A photo of a suite"  (score=0.3018)
+           2. "A photo of a bedrooms"  (score=0.2998)
+           3. "A photo of a accommodations"  (score=0.2969)
+           4. "A photo of a bedroom"  (score=0.2969)
+           5. "A photo of a suites"  (score=0.2913)
+           6. "A photo of a bedding"  (score=0.2905)
+           7. "A photo of a stayed"  (score=0.2896)
+           8. "A photo of a lodging"  (score=0.2893)
+
+        Best free caption (from 10000 random candidates): "a photo of room bed accommodations" (score=0.3323)

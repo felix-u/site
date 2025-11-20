@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>felix-u</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .ring {
+          position: relative;
+          width: 300px;
+          height: 300px;
+          margin: 40px auto;
+          animation: ring-spin 40s linear infinite;
+          border-radius: 50%;
+        }
+
+        .ring img {
+          --radius: 100px;
+
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 100px;
+          height: 100px;
+          border-radius: 50%;
+          object-fit: cover;
+
+          transform:
+            translate(-50%, -50%)
+            rotate(var(--angle))
+            translate(var(--radius))
+            rotate(calc(var(--angle) * -1));
+
+          transition:
+            transform 0.1s ease,
+            box-shadow 0.1s ease,
+            filter 0.1s ease;
+            z-index: 1;
+        }
+
+        .ring img:hover {
+          transform:
+            translate(-50%, -50%)
+            rotate(var(--angle))
+            translate(var(--radius))
+            rotate(calc(var(--angle) * -1))
+            scale(1.15);                 /* enlarge slightly */
+
+          box-shadow: 0 12px 22px rgba(0,0,0,0.35);
+          filter: brightness(1.15) contrast(1.1);
+          z-index: 10;
+        }
+
+        /* ring spin */
+        @keyframes ring-spin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+
+        code {
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <h1><a href="index.html">felix-u</a></h1>
+    <h2>Exploring CLIP</h2>
+    <main>
+        <p>
+            For this project, I played with CLIP and uncovered some interesting side effects of the way it works and the "modality gap".
+        </p>
+
+        <p>
+            I ran OpenAI's CLIP (ViT-B/32) locally via CUDA. My <a href="clip_challenge/code.py">code</a> runs all-in-one-go,
+            downloading the images, word list, datasets and generating results for both parts of the project.
+            There is randomness in each run by design, but the <a href="clip_challenge/output.txt">raw output</a>
+            of the sample run I reference throughout this post is quite representative of the typical result.
+        </p>
+
+<!--        TODO(felix): nicer button CSS in main style-->
+        <div style="display:flex; justify-content:center; gap:16px; margin-top:40px;">
+          Files:
+          <a href="clip_challenge/code.py"><button>code.py</button></a>
+          <a href="clip_challenge/output.txt"><button>output.txt</button></a>
+        </div>
+
+
+        <h2>Part 1: Matching Captions to Five Images</h2>
+
+        <div class="ring">
+            <a href="https://images.pexels.com/photos/36744/agriculture-arable-clouds-countryside.jpg"><img style="--angle: 0deg;" src="https://images.pexels.com/photos/36744/agriculture-arable-clouds-countryside.jpg"></a>
+            <a href="https://images.pexels.com/photos/825947/pexels-photo-825947.jpeg"><img style="--angle: 72deg;" src="https://images.pexels.com/photos/825947/pexels-photo-825947.jpeg"></a>
+            <a href="https://images.pexels.com/photos/34044163/pexels-photo-34044163.jpeg"><img style="--angle: 144deg;" src="https://images.pexels.com/photos/34044163/pexels-photo-34044163.jpeg"></a>
+            <a href="https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg"><img style="--angle: 216deg;" src="https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg"></a>
+            <a href="https://live.staticflickr.com/2404/2020522557_d1aa0a1066_k.jpg"><img style="--angle: 288deg;" src="https://live.staticflickr.com/2404/2020522557_d1aa0a1066_k.jpg"></a>
+        </div>
+
+<!--        TODO(felix): better <code> CSS-->
+<!--        TODO(felix): better <summary> CSS-->
+
+        <h3>Outline</h3>
+        <ol>
+            <li>Download and preprocess the five given images with CLIP's transform.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+image_tensors = []
+for url in IMAGE_URLS:
+    print(f"downloading image: {url}")
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    image = Image.open(io.BytesIO(response.content)).convert("RGB")
+    image_tensor = preprocess(image).unsqueeze(0).to(device)
+    image_tensors.append(image_tensor)
+assert len(image_tensors) > 0
+image_batch = torch.cat(image_tensors, dim=0)
+                    </code>
+                </details>
+                </li>
+            <li>Download a list of many English words. I chose to reference the 10,000 most commonly used words in the English language,
+                as produced by <a href="https://github.com/first20hours/google-10000-english">this open-source project</a>
+                which did
+                an n-gram analysis of Google's Trillion Word Corpus.
+
+                    <details>
+                        <summary>click to toggle code snippet</summary>
+                        <code>
+print(f"downloading word list from: {url}")
+response = requests.get(url, timeout=30)
+response.raise_for_status()
+lines = response.text.splitlines()
+words = []
+seen = set()
+for line in lines:
+    word = line.strip().lower()
+    if not word:
+        continue
+    if not word.isalpha():
+        continue
+    if word in seen:
+        continue
+    seen.add(word)
+    words.append(word)
+    if len(words) >= MAX_WORDS:
+        break
+assert len(words) >= MIN_WORDS, f"word list too small: have {len(words)}, need at least {MIN_WORDS}"
+print(f"loaded {len(words)} words")
+word_list = words
+                        </code>
+                    </details>
+                    </li>
+            <li>Encode all images.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+print("encoding images...")
+with torch.no_grad():
+    image_features = model.encode_image(image_batch.to(device))
+image_features = normalise_features(image_features)
+                    </code>
+                </details>
+                </li>
+            <li>Encode all words.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+print("encoding single words as text...")
+word_text_features = encode_texts_in_batches(model, word_list, device)
+                    </code>
+                </details>
+                </li>
+            <li>Compute cosine similarity and take the <code>TOP_K = 8</code> words per image.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+def find_top_k_words_for_each_image(image_features, word_features, words, top_k):
+    similarities = image_features @ word_features.T  # [N, M]
+    top_scores, top_indices = similarities.topk(k=top_k, dim=1)
+
+    top_words_per_image = []
+    top_scores_per_image = []
+
+    for row_scores, row_indices in zip(top_scores, top_indices):
+        indices = row_indices.tolist()
+        top_words_per_image.append([words[i] for i in indices])
+        top_scores_per_image.append(row_scores.tolist())
+
+    return top_words_per_image, top_scores_per_image
+
+print(f'finding top {TOP_K} single words W for each image (max CLIP(I), CLIP(W))...')
+top_words_plain, top_scores_plain = find_top_k_words_for_each_image(
+    image_features,
+    word_text_features,
+    word_list,
+    TOP_K,
+)
+                    </code>
+                </details>
+                </li>
+            <li>For every word <code>w</code>, repeat this using the template "A photo of a <code>w</code>.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+print('encoding "A photo of a W" prompts...')
+prompt_list = make_prompt_list_from_words(word_list)  # prompts for ALL words
+prompt_features = encode_texts_in_batches(model, prompt_list, device)
+
+print(f'finding top {TOP_K} "A photo of a W" captions for each image...')
+top_words_prompt, top_scores_prompt = find_top_k_words_for_each_image(
+    image_features,
+    prompt_features,
+    word_list,
+    TOP_K,
+)
+                    </code>
+                </details>
+                </li>
+            <li>For each image, generate 10,000 random captions from its top 8 words, keeping the best-scoring (most similar) one.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+def find_best_free_caption_for_images(model, image_features, device, top_words_per_image):
+    # for each image, we (1) take the top K single words, (2) generate random captions from those words, (3) score them with CLIP, and (4) keep the best one
+    num_images = image_features.shape[0]
+    captions = []
+    scores = []
+
+    for i in tqdm(range(num_images), desc="searching free captions"):
+        words = top_words_per_image[i]
+
+        candidate_captions = []
+        # not sure what the reasoning would be for adding or removing prefixes, but there seems to be worse performance when removing ALL of them. I think the prefixes make sense, if the captions are crowd-sourced and human-written
+        prefixes = ["", "a photo of", "a close-up of", "a scenic view of"]
+
+        # randomly sample captions
+        for _ in range(MAX_CAPTIONS):
+            length = random.randint(2, min(MAX_CAPTION_WORDS, len(words)))
+            chosen_words = random.sample(words, length)
+            prefix = random.choice(prefixes)
+
+            if prefix:
+                caption = prefix + " " + " ".join(chosen_words)
+            else:
+                caption = " ".join(chosen_words)
+
+            candidate_captions.append(caption)
+
+        candidate_features = encode_texts_in_batches(model, candidate_captions, device)
+
+        # similarity between this image and all candidates
+        sims = image_features[i].unsqueeze(0) @ candidate_features.T  # [1, num_captions]
+        best_score, best_idx = sims.squeeze(0).max(dim=0)
+
+        captions.append(candidate_captions[best_idx.item()])
+        scores.append(best_score.item())
+
+    return captions, scores
+
+print(f"finding best free caption using up to {MAX_CAPTIONS} random captions per image...")
+free_captions, free_caption_scores = find_best_free_caption_for_images(
+    model,
+    image_features,
+    device,
+    top_words_plain,  # use the top-K plain words as vocab per image
+)
+                    </code>
+                </details>
+                </li>
+        </ol>
+
+        <h3>Results</h3>
+
+<!--        TODO(felix): table of top results, matched to each image-->
+
+<!--        TODO(felix): discussion-->
+<!--            "a photo of W" better than W-->
+<!--            free constructions better than others-->
+<!--            matches that CLIP has been trained on human-written captions, which are natural and irregular-->
+
+        <h2>Part 2: Search for Similarity</h2>
+
+        <p>
+            The goal here was to find the pair of "regular" image (real photo, non-generated) and caption with the highest similarity, meaning they're as close as possible in CLIP-space.
+            I loaded 2,000 random images from the CIFAR-10 dataset (I ran out of VRAM when I tried to do more)
+            and generated 10,000 random captions from the same English word list I used previously,
+            encoding everything at once.
+            Building a 2,000x10,000 similarity matrix allowed me to find the best matches.
+        </p>
+
+        <h3>Outline</h3>
+
+<!--        TODO(felix)-->
+
+        <h3>Results</h3>
+
+<!--        TODO(felix): table of top matches and similarity values-->
+
+<!--        TODO(felix): discussion-->
+
+        <h2>The "Modality Gap": Takeaways</h2>
+
+<!--        TODO(felix): bullet-point list-->
+
+        <p>
+            The way CLIP was trained is pretty transparent in an exercise like this. The highest-scoring caption is not necessarily the most "sensible" human-readable one (though it's sometimes
+            fairly intelligible), but rather the one whose words make its CLIP-space vector "point the same way" as the matching image's vector, in the dimensions that matter.
+            There is some semblance of meaning captured in these vectors, but I think it'd be a stretch to say they contain deep semantic information, like what can be extracted by a
+            multi-modal LLM.
+        </p>
+    <main>
+</body>
+
+</html>
