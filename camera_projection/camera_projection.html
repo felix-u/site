@@ -44,6 +44,15 @@
         thead {
           background: #e0e0e0;
         }
+
+        img.chat {
+            max-width: 100%;
+            height: auto;
+        }
+
+        code {
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 
@@ -53,7 +62,11 @@
 
     <main>
         <p>
-            For this project, I adapted camera calibration and projection code to perform uncertainty analysis. Then, I solved for the real-world coordinates of a live webcam.
+            For this project, I adapted
+            <a href="https://colab.research.google.com/github/pless/computerVision/blob/0700ce69e0fb69d3dc0d4d53fa551ce0781fc2f1/homework3/calibrate.ipynb#scrollTo=mjzZFq-OK_Li">
+                this camera calibration and projection code
+            </a>
+            to perform uncertainty analysis. Then, I solved for the real-world coordinates of a live webcam.
         </p>
         <p>
             My <a href="code.py">code</a> runs all-in-one-go, downloading the images, performing the calibration/projection and uncertainty analysis, and generating visualisations
@@ -69,21 +82,436 @@
 
         <h2>Part 1: Known Data</h2>
 
-<!--        TODO(felix): initial result-->
+        <p>
+        Given an image from the University of Wisconsin-Madison and a set of six known coordinate/pixel pairs, the provided code computed the most likely real-world camera position
+        and re-projected the points onto the image from the computed camera position.
+        </p>
 
-<!--        TODO(felix): outline of analysis leaving out each point-->
+        <img src="wisconsin/image_plot.jpg" class="chat">
 
-<!--        TODO(felix): talk about point cloud, include GIF(s)-->
+        <p>
+        I added a 3D visualisation to more clearly see the points and their relative positions in space.
+        </p>
+        <details>
+            <summary>click to toggle code snippet</summary>
+            <code>
+def make_spin_gif(fig, ax, gif_path, fps=30, seconds=10, dpi=96):
+    def update(angle):
+        ax.view_init(elev=20, azim=angle)
+        return ax,
 
-<!--        TODO(felix): outline of adding noise to coordinates and pixel locations-->
+    frames = np.linspace(0, 360, fps * seconds)
 
-<!--        TODO(felix): talk about point cloud, include GIF(s) and histogram-->
+    anim = animation.FuncAnimation(
+        fig,
+        update,
+        frames=frames,
+        interval=1000 * seconds / len(frames),
+        blit=False,
+    )
+
+    anim.save(gif_path, writer="pillow", fps=fps, dpi=dpi)
+    compress_gif(gif_path)
+
+
+def compress_gif(file):
+    subprocess.run(
+        [
+            "ffmpeg", "-y",
+            "-i", file,
+            "-vf", "split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3",
+            "temp.gif",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+    )
+
+    os.replace("temp.gif", file)
+
+# Build visualization figure
+fig0 = plt.figure(figsize=(8, 6))
+ax0 = fig0.add_subplot(111, projection="3d")
+
+# Plot the input 3D ENU points
+ax0.scatter(
+    all_poi_enu[:, 0],
+    all_poi_enu[:, 1],
+    all_poi_enu[:, 2],
+    s=60,
+    marker="x",
+    color="#0080ff",
+    linewidths=2,
+    depthshade=False,
+    label="Original 3D Points",
+)
+for i in range(num_points):
+    ax0.text(
+        all_poi_enu[i, 0],
+        all_poi_enu[i, 1],
+        all_poi_enu[i, 2] + 0.5,
+        labels[i],
+        color="white",
+        fontsize=10,
+        weight="bold",
+        path_effects=[patheffects.withStroke(linewidth=2, foreground="#0080ff")],
+    )
+
+# Plot the single estimated camera location (red X)
+ax0.scatter(
+    cam0_enu[0], cam0_enu[1], cam0_enu[2],
+    s=120,
+    marker="x",
+    color="#ff0000",
+    linewidths=3,
+    label="Baseline Camera",
+)
+
+ax0.set_xlabel("East (m)")
+ax0.set_ylabel("North (m)")
+ax0.set_zlabel("Up (m)")
+ax0.legend()
+fig0.tight_layout()
+
+# GIF output path
+orig_points_gif = f"{data["out"]}/original_points_spin.gif"
+
+make_spin_gif(
+    fig=fig0,
+    ax=ax0,
+    gif_path=orig_points_gif,
+)
+            </code>
+        </details>
+
+        <img src="wisconsin/original_points_spin.gif" class="chat">
+
+        <p>
+        The first way to test the uncertainty of the calibration was to perform the analysis six times, each time leaving out one of the points. I visualised the results
+        using the same spinning plot generation code. Each coloured and labelled circle represents the computed camera position with that point <em>left out</em>.
+        </p>
+         <details>
+            <summary>click to toggle code snippet</summary>
+            <code>
+loo_centers_enu = np.zeros((num_points, 3), dtype=np.float64)
+loo_centers_gps = np.zeros((num_points, 3), dtype=np.float64)
+
+for i in range(num_points):
+    mask = np.ones(num_points, dtype=bool)
+    mask[i] = False
+
+    poi_enu_sub = all_poi_enu[mask]
+    poi_xy_sub  = all_poi_xy[mask]
+
+    # if only 5 points → duplicate first point to make 6
+    if poi_enu_sub.shape[0] < 6:
+        poi_enu_sub = np.vstack([poi_enu_sub, poi_enu_sub[0]])
+        poi_xy_sub  = np.vstack([poi_xy_sub,  poi_xy_sub[0]])
+
+    k_i, dist_i, r_i, t_i = estimate_camera_params(
+        poi_enu=poi_enu_sub,
+        poi_xy=poi_xy_sub,
+        frame_size=frame_size,
+        intrinsics_estimate=initial_k,
+        distortion_estimate=None
+    )
+
+    center_enu = camera_center_enu(r_i, t_i)
+    loo_centers_enu[i] = center_enu
+
+    lat_i, lon_i, alt_i = pm.enu2geodetic(
+        center_enu[0], center_enu[1], center_enu[2],
+        origin_gps[0], origin_gps[1], origin_gps[2]
+    )
+    loo_centers_gps[i] = [lat_i, lon_i, alt_i]
+            </code>
+        </details>
+
+        <img src="wisconsin/loo_camera_centers_enu_spin.gif" class="chat">
+
+        <div class="chat" style="display: flex; width: 100%;">
+            <img src="wisconsin/original_points_spin.gif" style="width: 100%;">
+            <img src="wisconsin/loo_camera_centers_enu_spin.gif" style="width: 100%;">
+        </div>
+
+        <p>
+        We can see that removing points D and E had the greatest effect. This makes sense given that they're further away, so they're providing useful information in addition
+        to the A,B,C,F cluster, where those points are comparatively close. Removing C also has a big effect, however. I suspect this is because A, B, and F are about the same
+        distance from the camera and in something close to a straight line; C lies perpendicular to that line.
+        </p>
+
+        <p>
+        Next, I tested the stability of the camera position computation by adding random noise to each of the 3D coordinates and the pixel coordinates, and amalgamating 100 such trials.
+        </p>
+        <details>
+            <summary>click to toggle code snippet</summary>
+            <code>
+num_trials = 100
+noise_centers_enu = np.zeros((num_trials, 3), dtype=np.float64)
+noise_focals = np.zeros(num_trials, dtype=np.float64)
+
+for i in range(num_trials):
+    noisy_enu = all_poi_enu + np.random.normal(0.0, 1.0, all_poi_enu.shape)
+    noisy_xy = all_poi_xy + np.random.normal(0.0, 1.0, all_poi_xy.shape)
+
+    k_n, dist_n, r_n, t_n = estimate_camera_params(
+        poi_enu=noisy_enu,
+        poi_xy=noisy_xy,
+        frame_size=frame_size,
+        intrinsics_estimate=initial_k,
+        distortion_estimate=None,
+        should_print = False,
+    )
+
+    noise_centers_enu[i] = camera_center_enu(r_n, t_n)
+    noise_focals[i] = k_n[0, 0]
+            </code>
+        </details>
+
+        <p>
+        Here I ran into a problem: on most runs, two to ten outliers would skew the resulting projection so much that I couldn't produce reasonable plots even at logarithmic scale.
+        To fix this, I rejected outliers using the interquartile range method.
+        </p>
+        <details>
+            <summary>click to toggle code snippet</summary>
+            <code>
+q1, q3 = np.percentile(noise_focals, [25, 75])
+iqr = q3 - q1
+lower = q1 - 1.5 * iqr
+upper = q3 + 1.5 * iqr
+valid_mask = (noise_focals >= lower) & (noise_focals <= upper)
+            </code>
+        </details>
+        <p>
+        The run referenced in this blog post removed nine outliers out of 100 samples, leaving 91. With this done, I could generate a useful point cloud:
+        </p>
+
+        <img src="wisconsin/noise_camera_centers_spin.gif" class="chat">
+
+        <p>
+        It's interesting that the estimates stay at roughly the same altitude, with variation mostly in the North-South and East-West directions. A small secondary group of estimates
+        forms an approximate plane about 100 metres below the baseline camera, with similar variation in both horizontal dimensions. It would be cool to find out what caused this secondary
+        plane and why altitude is staying so stable relative to the horizontal dimensions, but I wasn't sure how to find that out.
+        </p>
+
+        <p>
+        Finally, I generated a histogram showing estimated focal length. The given code computed focal length in pixels, but since it's easier for me to reason about focal length
+        in millimetres (full-frame equivalent), I changed the code to do that instead, multiplying by a new <code>ff_scale</code>.
+        </p>
+        <details>
+            <summary>click to toggle code snippet</summary>
+            <code>
+# Get image dimensions (height, width)
+frame_size = (default_img.height, default_img.width) # OpenCV uses (height, width)
+
+full_frame_width_mm = 36.0
+ff_scale = full_frame_width_mm / frame_size[1]  # mm per "fx pixel" in 35mm-equivalent
+
+# ...
+# omitted given code for brevity
+# ...
+
+focal_eq_mm = noise_focals[valid_mask] * ff_scale
+baseline_fx_eq_mm = k_matrix[0, 0] * ff_scale
+            </code>
+        </details>
+
+        <img src="wisconsin/noise_focal_histogram.jpg" class="chat">
+
+        <p>
+        The noise isn't having anywhere near as great of an effect on focal length estimation as it had on position estimation.
+        We're estimating just under 18.5mm full-frame equivalent, which for context is about halfway between an iPhone's normal lens and ultrawide.
+        That seems reasonable if we look at the image again. There's even a little fisheye distortion of the horizon, which you would expect to see in an uncorrected image
+        from most lenses of this focal length.
+        </p>
+
+        <img src="wisconsin/image_plot.jpg" class="chat" style="width: 50%">
 
         <h2>Part 2: Real-world cameras</h2>
 
-<!--        TODO(felix): table of pixel coordinates with matching real coordinates-->
+        <p>
+        I did the same process for a webcam image from Boston. This time I had to create the earth-coordinate and pixel-coordinate lists myself.
+        Firstly, I found the corresponding scene in Google Earth. (I admit I needed a little help identifying buildings from ChatGPT!)
+        </p>
 
-<!--        TODO(felix): recovered camera location, with GIF(s) and images-->
+        <div class="chat" style="display: flex; width: 100%;">
+            <img src="boston/original_image.jpg" style="width: 100%;">
+            <img src="boston/3d_birds_eye.jpg" style="width: 100%;">
+        </div>
+
+        <p>
+        I chose six points, mousing over them in an image viewer to get the pixel coordinates, and obtaining matching real-world coordinates by placing pins in the Google Earth Pro
+        desktop app.
+        </p>
+
+        <div class="chat">
+            <div style="display: flex; width: 100%;">
+                <img src="boston/earth_points_1.jpg" style="width: 100%;">
+                <img src="boston/real_points_1.jpg" style="width: 100%;">
+            </div>
+            <div style="display: flex; width: 100%;">
+                <img src="boston/earth_points_2.jpg" style="width: 100%;">
+                <img src="boston/real_points_2.jpg" style="width: 100%;">
+            </div>
+            <div style="display: flex; width: 100%;">
+                <img src="boston/earth_points_3.jpg" style="width: 100%;">
+                <img src="boston/real_points_3.jpg" style="width: 100%;">
+            </div>
+            <div style="display: flex; width: 100%;">
+                <img src="boston/earth_points_4.jpg" style="width: 100%;">
+                <img src="boston/real_points_4.jpg" style="width: 100%;">
+            </div>
+        </div>
+
+        <p>(That last one was much more visible in the night image I was seeing when working on this part.)</p>
+
+        <p>I used the same method to make a reasonable estimate of the camera's position:</p>
+
+        <img src="boston/earth_camera_estimate.jpg" class="chat">
+
+        <p>
+            This let me produce the following table, analogous to the one provided for the Wisconsin photo, where the ids 1 to 6 correspond to points A to F:
+        </p>
+        <table class="table table-bordered table-hover table-condensed">
+        <thead><tr><th title="Field #1">id</th>
+        <th title="Field #2">img_x</th>
+        <th title="Field #3">img_y</th>
+        <th title="Field #4">map_lat</th>
+        <th title="Field #5">map_lng</th>
+        <th title="Field #6">map_altitude</th>
+        </tr></thead>
+        <tbody><tr>
+        <td align="right">1</td>
+        <td align="right">1239</td>
+        <td align="right">525</td>
+        <td align="right">42.355867</td>
+        <td align="right">-71.050269</td>
+        <td align="right">76</td>
+        </tr>
+        <tr>
+        <td align="right">2</td>
+        <td align="right">823</td>
+        <td align="right">523</td>
+        <td align="right">42.354044</td>
+        <td align="right">-71.050964</td>
+        <td align="right">63</td>
+        </tr>
+        <tr>
+        <td align="right">3</td>
+        <td align="right">1516</td>
+        <td align="right">1017</td>
+        <td align="right">42.352658</td>
+        <td align="right">-71.048958</td>
+        <td align="right">16</td>
+        </tr>
+        <tr>
+        <td align="right">4</td>
+        <td align="right">194</td>
+        <td align="right">210</td>
+        <td align="right">42.353069</td>
+        <td align="right">-71.052536</td>
+        <td align="right">151</td>
+        </tr>
+        <tr>
+        <td align="right">5</td>
+        <td align="right">1065</td>
+        <td align="right">538</td>
+        <td align="right">42.359047</td>
+        <td align="right">-71.053572</td>
+        <td align="right">164</td>
+        </tr>
+        <tr>
+        <td align="right">6</td>
+        <td align="right">671</td>
+        <td align="right">792</td>
+        <td align="right">42.352522</td>
+        <td align="right">-71.049256</td>
+        <td align="right">25</td>
+        </tr>
+        </tbody></table>
+
+        <p>
+            By moving all the logic from Part 1 into a function taking this data, the origin, the initial FOV estimate, and the image, I was able
+            to use the exact same logic to compute all the same results for the Boston photo.
+        </p>
+        <details>
+            <summary>click to toggle code snippet</summary>
+            <code>
+def main():
+    datas = [
+        {
+            # Define the GPS coordinates (latitude, longitude, altitude) approximately for the camera's origin point
+            # This point will serve as the reference for the local East-North-Up (ENU) coordinate system
+            "origin": {
+                "latitude": 43.07063697146,
+                "longitude": -89.40685704184578,
+                "altitude": 263 + 204*0.3048,
+            },
+            # Construct the full path to the CSV file containing point correspondences
+            # Using the raw content URL from GitHub for direct access
+            "path_to_csv": 'https://raw.githubusercontent.com/shrnik/contrails/main/uwisc/east/matches.csv',
+            "url": 'https://raw.githubusercontent.com/shrnik/contrails/main/uwisc/east/DEFAULT.jpg',
+            # Define an initial guess for the camera's vertical field of view (FOV) in degrees.
+            # This is often known approximately from camera specifications or can be estimated.
+            "vfov_deg_estimate": 63.59, # Example estimated vertical FOV
+            "out": "wisconsin",
+        },
+        {
+            "origin": {
+                "latitude": 42.352397,
+                "longitude": -71.048881,
+                "altitude": 14 + 14,
+            },
+            "path_to_csv": "./boston_points.csv",
+            "vfov_deg_estimate": 85,
+            "url": 'http://sleeper.dyndns.org/record/current.jpg',
+            "out": "boston",
+        },
+    ]
+
+    for data in datas:
+        process_data(data)
+
+
+if __name__ == "__main__":
+    main()
+            </code>
+        </details>
+
+        <img src="boston/image_plot.jpg" class="chat">
+        <img src="boston/original_points_spin.gif" class="chat">
+        <img src="boston/loo_camera_centers_enu_spin.gif" class="chat">
+        <div class="chat" style="display: flex; width: 100%;">
+            <img src="boston/original_points_spin.gif" style="width: 100%;">
+            <img src="boston/loo_camera_centers_enu_spin.gif" style="width: 100%;">
+        </div>
+        <img src="boston/noise_camera_centers_spin.gif" class="chat">
+        <img src="boston/noise_focal_histogram.jpg" class="chat">
+
+        <p>And the computed camera position, as viewed in Google Earth Pro:</p>
+
+        <img src="boston/computed_1.jpg" class="chat">
+        <img src="boston/computed_2.jpg" class="chat">
+
+        <p>
+            It's too far south (Point E is occluded by a building) and too low, but a decent approximation. My estimated origin point is in all likelihood closer to the real position.
+            I did try looking for the camera on Google Street View, but it's behind a window and I couldn't find it.
+        </p>
+
+        <p>
+            Besides any possible errors on my part when mapping the pixel coordinates to real-world coordinates (which certainly could've caused this), I think it's a trickier scene.
+            If we take another look at the "leave-one-out" camera estimations and the point cloud of estimates with added noise, we can see there's less room to manouevre than there was in the
+            Wisconsin case.
+        </p>
+        <div class="chat" style="display: flex; width: 100%;">
+            <img src="boston/loo_camera_centers_enu_spin.gif" style="width: 100%;">
+            <img src="boston/noise_camera_centers_spin.gif" style="width: 100%;">
+        </div>
+
+        <p>
+            On the left, it's clear that removing any point except D is enough to sabotage the estimation, and on the right we no longer get a well-behaved plane with a secondary outlier plane,
+            but rather several random-seeming outliers and a roughly linear grouping up and to the north-west of the camera. The focal length histogram also has strange behaviour, with only two buckets: below 0.5mm full-frame equivalent (obviously wrong - 9mm is about the widest possible), and about 17mm. The latter guess is plausible, but to my eye that's a little too wide. I think the
+            real focal length is a bit narrower.
+        </p>
 
 <!--        TODO(felix): discussion-->
 
@@ -92,30 +520,6 @@
 </html>
 
 <!--
-
-        <p>
-            I ran OpenAI's CLIP (ViT-B/32) locally via CUDA. My <a href="clip_challenge/code.py">code</a> runs all-in-one-go,
-            downloading the images, word list, datasets and generating results for both parts of the project.
-            There is randomness in each run by design, but the <a href="clip_challenge/output.txt">raw output</a>
-            of the sample run I reference throughout this post is quite representative of the typical result.
-        </p>
-
-        <div style="display:flex; justify-content:center; gap:16px; margin-top:40px;">
-          Files:
-          <a href="clip_challenge/code.py"><button>code.py</button></a>
-          <a href="clip_challenge/output.txt"><button>output.txt</button></a>
-        </div>
-
-
-        <h2>Part 1: Matching Captions to Five Images</h2>
-
-        <div class="ring">
-            <a href="https://images.pexels.com/photos/36744/agriculture-arable-clouds-countryside.jpg"><img style="--angle: 0deg;" src="https://images.pexels.com/photos/36744/agriculture-arable-clouds-countryside.jpg"></a>
-            <a href="https://images.pexels.com/photos/825947/pexels-photo-825947.jpeg"><img style="--angle: 72deg;" src="https://images.pexels.com/photos/825947/pexels-photo-825947.jpeg"></a>
-            <a href="https://images.pexels.com/photos/34044163/pexels-photo-34044163.jpeg"><img style="--angle: 144deg;" src="https://images.pexels.com/photos/34044163/pexels-photo-34044163.jpeg"></a>
-            <a href="https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg"><img style="--angle: 216deg;" src="https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg"></a>
-            <a href="https://live.staticflickr.com/2404/2020522557_d1aa0a1066_k.jpg"><img style="--angle: 288deg;" src="https://live.staticflickr.com/2404/2020522557_d1aa0a1066_k.jpg"></a>
-        </div>
 
         <h3>Outline</h3>
         <ol>
