@@ -1,0 +1,188 @@
+=== Wisconsin ===
+
+   id  img_x  img_y    map_lat    map_lng  map_altitude
+0   1    915   1582  43.071104 -89.403965    263.678528
+1   2    703   1609  43.071366 -89.404300    263.234314
+2   3    727   1791  43.071092 -89.405149    264.470459
+3   4   2201   1705  43.069481 -89.404959    260.558167
+4   5   2215   1540  43.068844 -89.403971    259.164276
+Initial intrinsics guess:
+ [[1.5679811e+03 0.0000000e+00 1.2960000e+03]
+ [0.0000000e+00 1.5679811e+03 9.7200000e+02]
+ [0.0000000e+00 0.0000000e+00 1.0000000e+00]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 39.4049153591975
+Original points + camera GIF written to wisconsin/original_points_spin.gif
+Initial intrinsics guess:
+ [[1.5679811e+03 0.0000000e+00 1.2960000e+03]
+ [0.0000000e+00 1.5679811e+03 9.7200000e+02]
+ [0.0000000e+00 0.0000000e+00 1.0000000e+00]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 39.4049153591975
+
+--- Estimated Camera Location (baseline) ---
+ENU (m): [-32.79431365  -5.50088109  -5.19901601]
+GPS (lat, lon, alt): 43.070587457735556, -89.4072596649491, 319.98027054170785
+
+--- Estimated Camera Parameters ---
+Intrinsic Matrix (K):
+ [[1.32758701e+03 0.00000000e+00 1.29600000e+03]
+ [0.00000000e+00 1.32758701e+03 9.72000000e+02]
+ [0.00000000e+00 0.00000000e+00 1.00000000e+00]]
+Distortion Coefficients (D):
+ [0. 0. 0. 0. 0.]
+Rotation Matrix (R - ENU to Camera):
+ [[-4.14140299e-02 -9.99105263e-01 -8.57622639e-03]
+ [ 2.06932573e-01 -1.79476753e-04 -9.78355190e-01]
+ [ 9.77478280e-01 -4.22923317e-02  2.06754856e-01]]
+Translation Vector (T - ENU to Camera):
+ [-6.89869187  1.69874014 32.89800603]
+
+Estimated Horizontal FOV: 88.62 degrees
+Estimated Vertical FOV: 72.42 degrees
+Initial intrinsics guess:
+ [[1.5679811e+03 0.0000000e+00 1.2960000e+03]
+ [0.0000000e+00 1.5679811e+03 9.7200000e+02]
+ [0.0000000e+00 0.0000000e+00 1.0000000e+00]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 38.1824750654439
+Initial intrinsics guess:
+ [[1.5679811e+03 0.0000000e+00 1.2960000e+03]
+ [0.0000000e+00 1.5679811e+03 9.7200000e+02]
+ [0.0000000e+00 0.0000000e+00 1.0000000e+00]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 40.028272924792624
+Initial intrinsics guess:
+ [[1.5679811e+03 0.0000000e+00 1.2960000e+03]
+ [0.0000000e+00 1.5679811e+03 9.7200000e+02]
+ [0.0000000e+00 0.0000000e+00 1.0000000e+00]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 20.509669430381997
+Initial intrinsics guess:
+ [[1.5679811e+03 0.0000000e+00 1.2960000e+03]
+ [0.0000000e+00 1.5679811e+03 9.7200000e+02]
+ [0.0000000e+00 0.0000000e+00 1.0000000e+00]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 28.852314224938155
+Initial intrinsics guess:
+ [[1.5679811e+03 0.0000000e+00 1.2960000e+03]
+ [0.0000000e+00 1.5679811e+03 9.7200000e+02]
+ [0.0000000e+00 0.0000000e+00 1.0000000e+00]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 26.678180327449017
+Initial intrinsics guess:
+ [[1.5679811e+03 0.0000000e+00 1.2960000e+03]
+ [0.0000000e+00 1.5679811e+03 9.7200000e+02]
+ [0.0000000e+00 0.0000000e+00 1.0000000e+00]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 10.348083476734663
+
+Leave-one-out camera centers written to wisconsin/loo_camera_centers.csv
+3D ENU rotation GIF written to wisconsin/loo_camera_centers_enu_spin.gif
+3D ENU point cloud written to wisconsin/loo_camera_centers_enu.jpg
+Dropped 9 / 100 hyper-noisy trials as outliers
+Noise 3D ENU rotation GIF written to wisconsin/noise_camera_centers_spin.gif
+Focal length histogram written to wisconsin/noise_focal_histogram.jpg
+
+
+=== Boston ===
+
+   id  img_x  img_y    map_lat    map_lng  map_altitude
+0   1   1239    525  42.355867 -71.050269            76
+1   2    823    523  42.354044 -71.050964            63
+2   3   1516   1017  42.352658 -71.048958            16
+3   4    194    210  42.353069 -71.052536           151
+4   5   1065    538  42.359047 -71.053572           164
+Initial intrinsics guess:
+ [[589.3066   0.     960.    ]
+ [  0.     589.3066 540.    ]
+ [  0.       0.       1.    ]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 80.49804881085736
+Original points + camera GIF written to boston/original_points_spin.gif
+Initial intrinsics guess:
+ [[589.3066   0.     960.    ]
+ [  0.     589.3066 540.    ]
+ [  0.       0.       1.    ]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 80.49804881085736
+
+--- Estimated Camera Location (baseline) ---
+ENU (m): [-14.95836633  -8.32403078 -23.58122299]
+GPS (lat, lon, alt): 42.35232206273682, -71.04906255070446, 4.418799967613538
+
+--- Estimated Camera Parameters ---
+Intrinsic Matrix (K):
+ [[890.34236389   0.         960.        ]
+ [  0.         890.34236389 540.        ]
+ [  0.           0.           1.        ]]
+Distortion Coefficients (D):
+ [0. 0. 0. 0. 0.]
+Rotation Matrix (R - ENU to Camera):
+ [[-0.60657913 -0.5383592   0.58500524]
+ [-0.64600944 -0.09513064 -0.75737835]
+ [ 0.46339353 -0.83732881 -0.29008087]]
+Translation Vector (T - ENU to Camera):
+ [  0.24038762 -28.31502399  -6.87880218]
+
+Estimated Horizontal FOV: 94.31 degrees
+Estimated Vertical FOV: 62.47 degrees
+Initial intrinsics guess:
+ [[589.3066   0.     960.    ]
+ [  0.     589.3066 540.    ]
+ [  0.       0.       1.    ]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 95.74239595641622
+Initial intrinsics guess:
+ [[589.3066   0.     960.    ]
+ [  0.     589.3066 540.    ]
+ [  0.       0.       1.    ]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 18.011101000755012
+Initial intrinsics guess:
+ [[589.3066   0.     960.    ]
+ [  0.     589.3066 540.    ]
+ [  0.       0.       1.    ]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 16.485319850043307
+Initial intrinsics guess:
+ [[589.3066   0.     960.    ]
+ [  0.     589.3066 540.    ]
+ [  0.       0.       1.    ]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 50.12858027629916
+Initial intrinsics guess:
+ [[589.3066   0.     960.    ]
+ [  0.     589.3066 540.    ]
+ [  0.       0.       1.    ]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 277.86104515014074
+Initial intrinsics guess:
+ [[589.3066   0.     960.    ]
+ [  0.     589.3066 540.    ]
+ [  0.       0.       1.    ]]
+Initial distortion guess:
+ [0. 0. 0. 0. 0.]
+Calibration reprojection error: 81.14953106992647
+
+Leave-one-out camera centers written to boston/loo_camera_centers.csv
+3D ENU rotation GIF written to boston/loo_camera_centers_enu_spin.gif
+3D ENU point cloud written to boston/loo_camera_centers_enu.jpg
+Dropped 0 / 100 hyper-noisy trials as outliers
+Noise 3D ENU rotation GIF written to boston/noise_camera_centers_spin.gif
+Focal length histogram written to boston/noise_focal_histogram.jpg

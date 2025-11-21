@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>felix-u</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        .results_gallery {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 40px;
+          // max-width: 800px;
+          margin: 0 auto;
+        }
+
+        .single_result {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .single_result img {
+          width: 300px;
+          display: block;
+          margin-bottom: 0px;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          // font-family: sans-serif;
+          // font-size: 14px;
+        }
+
+        th, td {
+          border: 1px solid #ccc;
+          padding: 4px 8px;
+          text-align: left;
+        }
+
+        thead {
+          background: #e0e0e0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1><a href="../index.html">felix-u</a></h1>
+    <h2>Camera calibration</h2>
+
+    <main>
+        <p>
+            For this project, I adapted camera calibration and projection code to perform uncertainty analysis. Then, I solved for the real-world coordinates of a live webcam.
+        </p>
+        <p>
+            My <a href="code.py">code</a> runs all-in-one-go, downloading the images, performing the calibration/projection and uncertainty analysis, and generating visualisations
+            for both the given image and a live webcam in Boston. There is randomness in each run by design, but the <a href="output.txt">raw output</a> of the sample run I reference
+            throughout this post is quite representative of the typical result.
+        </p>
+
+        <div style="display:flex; justify-content:center; gap:16px; margin-top:40px;">
+          Files:
+          <a href="code.py"><button>code.py</button></a>
+          <a href="output.txt"><button>output.txt</button></a>
+        </div>
+
+        <h2>Part 1: Known Data</h2>
+
+<!--        TODO(felix): initial result-->
+
+<!--        TODO(felix): outline of analysis leaving out each point-->
+
+<!--        TODO(felix): talk about point cloud, include GIF(s)-->
+
+<!--        TODO(felix): outline of adding noise to coordinates and pixel locations-->
+
+<!--        TODO(felix): talk about point cloud, include GIF(s) and histogram-->
+
+        <h2>Part 2: Real-world cameras</h2>
+
+<!--        TODO(felix): table of pixel coordinates with matching real coordinates-->
+
+<!--        TODO(felix): recovered camera location, with GIF(s) and images-->
+
+<!--        TODO(felix): discussion-->
+
+    </main>
+</body>
+</html>
+
+<!--
+
+        <p>
+            I ran OpenAI's CLIP (ViT-B/32) locally via CUDA. My <a href="clip_challenge/code.py">code</a> runs all-in-one-go,
+            downloading the images, word list, datasets and generating results for both parts of the project.
+            There is randomness in each run by design, but the <a href="clip_challenge/output.txt">raw output</a>
+            of the sample run I reference throughout this post is quite representative of the typical result.
+        </p>
+
+        <div style="display:flex; justify-content:center; gap:16px; margin-top:40px;">
+          Files:
+          <a href="clip_challenge/code.py"><button>code.py</button></a>
+          <a href="clip_challenge/output.txt"><button>output.txt</button></a>
+        </div>
+
+
+        <h2>Part 1: Matching Captions to Five Images</h2>
+
+        <div class="ring">
+            <a href="https://images.pexels.com/photos/36744/agriculture-arable-clouds-countryside.jpg"><img style="--angle: 0deg;" src="https://images.pexels.com/photos/36744/agriculture-arable-clouds-countryside.jpg"></a>
+            <a href="https://images.pexels.com/photos/825947/pexels-photo-825947.jpeg"><img style="--angle: 72deg;" src="https://images.pexels.com/photos/825947/pexels-photo-825947.jpeg"></a>
+            <a href="https://images.pexels.com/photos/34044163/pexels-photo-34044163.jpeg"><img style="--angle: 144deg;" src="https://images.pexels.com/photos/34044163/pexels-photo-34044163.jpeg"></a>
+            <a href="https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg"><img style="--angle: 216deg;" src="https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg"></a>
+            <a href="https://live.staticflickr.com/2404/2020522557_d1aa0a1066_k.jpg"><img style="--angle: 288deg;" src="https://live.staticflickr.com/2404/2020522557_d1aa0a1066_k.jpg"></a>
+        </div>
+
+        <h3>Outline</h3>
+        <ol>
+            <li>Download and preprocess the five given images with CLIP's transform.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+image_tensors = []
+for url in IMAGE_URLS:
+    print(f"downloading image: {url}")
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    image = Image.open(io.BytesIO(response.content)).convert("RGB")
+    image_tensor = preprocess(image).unsqueeze(0).to(device)
+    image_tensors.append(image_tensor)
+assert len(image_tensors) > 0
+image_batch = torch.cat(image_tensors, dim=0)
+                    </code>
+                </details>
+                </li>
+            <li>Download a list of many English words. I chose to reference the 10,000 most commonly used words in the English language,
+                as produced by <a href="https://github.com/first20hours/google-10000-english">this open-source project</a>
+                which did
+                an n-gram analysis of Google's Trillion Word Corpus.
+
+                    <details>
+                        <summary>click to toggle code snippet</summary>
+                        <code>
+print(f"downloading word list from: {url}")
+response = requests.get(url, timeout=30)
+response.raise_for_status()
+lines = response.text.splitlines()
+words = []
+seen = set()
+for line in lines:
+    word = line.strip().lower()
+    if not word:
+        continue
+    if not word.isalpha():
+        continue
+    if word in seen:
+        continue
+    seen.add(word)
+    words.append(word)
+    if len(words) >= MAX_WORDS:
+        break
+assert len(words) >= MIN_WORDS, f"word list too small: have {len(words)}, need at least {MIN_WORDS}"
+print(f"loaded {len(words)} words")
+word_list = words
+                        </code>
+                    </details>
+                    </li>
+            <li>Encode all images.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+print("encoding images...")
+with torch.no_grad():
+    image_features = model.encode_image(image_batch.to(device))
+image_features = normalise_features(image_features)
+                    </code>
+                </details>
+                </li>
+            <li>Encode all words.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+print("encoding single words as text...")
+word_text_features = encode_texts_in_batches(model, word_list, device)
+                    </code>
+                </details>
+                </li>
+            <li>Compute cosine similarity and take the <code>TOP_K = 8</code> words per image.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+def find_top_k_words_for_each_image(image_features, word_features, words, top_k):
+    similarities = image_features @ word_features.T  # [N, M]
+    top_scores, top_indices = similarities.topk(k=top_k, dim=1)
+
+    top_words_per_image = []
+    top_scores_per_image = []
+
+    for row_scores, row_indices in zip(top_scores, top_indices):
+        indices = row_indices.tolist()
+        top_words_per_image.append([words[i] for i in indices])
+        top_scores_per_image.append(row_scores.tolist())
+
+    return top_words_per_image, top_scores_per_image
+
+print(f'finding top {TOP_K} single words W for each image (max CLIP(I), CLIP(W))...')
+top_words_plain, top_scores_plain = find_top_k_words_for_each_image(
+    image_features,
+    word_text_features,
+    word_list,
+    TOP_K,
+)
+                    </code>
+                </details>
+                </li>
+            <li>For every word <code>w</code>, repeat this using the template "A photo of a <code>w</code>.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+print('encoding "A photo of a W" prompts...')
+prompt_list = make_prompt_list_from_words(word_list)  # prompts for ALL words
+prompt_features = encode_texts_in_batches(model, prompt_list, device)
+
+print(f'finding top {TOP_K} "A photo of a W" captions for each image...')
+top_words_prompt, top_scores_prompt = find_top_k_words_for_each_image(
+    image_features,
+    prompt_features,
+    word_list,
+    TOP_K,
+)
+                    </code>
+                </details>
+                </li>
+            <li>For each image, generate 10,000 random captions from its top 8 words, keeping the best-scoring (most similar) one.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+def find_best_free_caption_for_images(model, image_features, device, top_words_per_image):
+    # for each image, we (1) take the top K single words, (2) generate random captions from those words, (3) score them with CLIP, and (4) keep the best one
+    num_images = image_features.shape[0]
+    captions = []
+    scores = []
+
+    for i in tqdm(range(num_images), desc="searching free captions"):
+        words = top_words_per_image[i]
+
+        candidate_captions = []
+        # not sure what the reasoning would be for adding or removing prefixes, but there seems to be worse performance when removing ALL of them. I think the prefixes make sense, if the captions are crowd-sourced and human-written
+        prefixes = ["", "a photo of", "a close-up of", "a scenic view of"]
+
+        # randomly sample captions
+        for _ in range(MAX_CAPTIONS):
+            length = random.randint(2, min(MAX_CAPTION_WORDS, len(words)))
+            chosen_words = random.sample(words, length)
+            prefix = random.choice(prefixes)
+
+            if prefix:
+                caption = prefix + " " + " ".join(chosen_words)
+            else:
+                caption = " ".join(chosen_words)
+
+            candidate_captions.append(caption)
+
+        candidate_features = encode_texts_in_batches(model, candidate_captions, device)
+
+        # similarity between this image and all candidates
+        sims = image_features[i].unsqueeze(0) @ candidate_features.T  # [1, num_captions]
+        best_score, best_idx = sims.squeeze(0).max(dim=0)
+
+        captions.append(candidate_captions[best_idx.item()])
+        scores.append(best_score.item())
+
+    return captions, scores
+
+print(f"finding best free caption using up to {MAX_CAPTIONS} random captions per image...")
+free_captions, free_caption_scores = find_best_free_caption_for_images(
+    model,
+    image_features,
+    device,
+    top_words_plain,  # use the top-K plain words as vocab per image
+)
+                    </code>
+                </details>
+                </li>
+        </ol>
+
+        <h3>Results</h3>
+
+        <div class="result_gallery">
+            <p class="chat correct">"a scenic view of sun rise migration", 0.3162</p>
+            <div class="single_result">
+                <img src="https://images.pexels.com/photos/36744/agriculture-arable-clouds-countryside.jpg">
+                <table>
+                    <thead><tr><th>"W"</th><th>Score</th><th>"A photo of a W"</th><th>Score</th></tr></thead>
+                    <tr><td>sunset</td><td>0.2656</td><td><strong>A photo of a sunset</strong></td><td><strong>0.2788</strong></td></tr>
+                    <tr><td>sunrise</td><td>0.2651</td><td>A photo of a sunrise</td><td>0.2786</td></tr>
+                    <tr><td>sun</td><td>0.2612</td><td>A photo of a sun</td><td>0.2722</td></tr>
+                    <tr><td>dawn</td><td>0.2590</td><td>A photo of a dawn</td><td>0.2703</td></tr>
+                    <tr><td>migration</td><td>0.2542</td><td>A photo of a sol</td><td>0.2686</td></tr>
+                    <tr><td>sol</td><td>0.2507</td><td>A photo of a eve</td><td>0.2668</td></tr>
+                    <tr><td>rise</td><td>0.2489</td><td>A photo of a rising</td><td>0.2659</td></tr>
+                    <tr><td>evening</td><td>0.2489</td><td>A photo of a migration</td><td>0.2634</td></tr>
+                </table>
+            </div>
+
+            <p class="chat correct">"a photo of diesel portrait dog", 0.3303</p>
+            <div class="single_result">
+                <img src="https://images.pexels.com/photos/825947/pexels-photo-825947.jpeg">
+                <table>
+                    <thead><tr><th>"W"</th><th>Score</th><th>"A photo of a W"</th><th>Score</th></tr></thead>
+                    <tr><td>dog</td><td>0.2827</td><td><strong>A photo of a dog</strong></td><td><strong>0.2925</strong></td></tr>
+                    <tr><td>max</td><td>0.2769</td><td>A photo of a pit</td><td>0.2898</td></tr>
+                    <tr><td>lycos</td><td>0.2715</td><td>A photo of a breed</td><td>0.2898</td></tr>
+                    <tr><td>diesel</td><td>0.2700</td><td>A photo of a grey</td><td>0.2871</td></tr>
+                    <tr><td>portrait</td><td>0.2698</td><td>A photo of a ears</td><td>0.2866</td></tr>
+                    <tr><td>duke</td><td>0.2695</td><td>A photo of a gray</td><td>0.2861</td></tr>
+                    <tr><td>ears</td><td>0.2688</td><td>A photo of a dogs</td><td>0.2852</td></tr>
+                    <tr><td>nova</td><td>0.2681</td><td>A photo of a floyd</td><td>0.2812</td></tr>
+                </table>
+            </div>
+
+            <p class="chat correct">"a photo of woods fog autumn bench", 0.3647</p>
+            <div class="single_result">
+                <img src="https://images.pexels.com/photos/34044163/pexels-photo-34044163.jpeg">
+                <table>
+                    <thead><tr><th>"W"</th><th>Score</th><th>"A photo of a W"</th><th>Score</th></tr></thead>
+                    <tr><td>forest</td><td>0.2678</td><td><strong>A photo of a woods</strong></td><td><strong>0.2922</strong></td></tr>
+                    <tr><td>woods</td><td>0.2666</td><td>A photo of a forest</td><td>0.2847</td></tr>
+                    <tr><td>deer</td><td>0.2661</td><td>A photo of a forests</td><td>0.2834</td></tr>
+                    <tr><td>bench</td><td>0.2637</td><td>A photo of a forestry</td><td>0.2827</td></tr>
+                    <tr><td>fog</td><td>0.2617</td><td>A photo of a bench</td><td>0.2820</td></tr>
+                    <tr><td>forests</td><td>0.2610</td><td>A photo of a hunting</td><td>0.2817</td></tr>
+                    <tr><td>forestry</td><td>0.2576</td><td>A photo of a fog</td><td>0.2817</td></tr>
+                    <tr><td>autumn</td><td>0.2571</td><td>A photo of a hunt</td><td>0.2773</td></tr>
+                </table>
+            </div>
+
+            <p class="chat correct">"a close-up of wallace morris advertisement puppy", 0.3635</p>
+            <div class="single_result">
+                <img src="https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg">
+                <table>
+                    <thead><tr><th>"W"</th><th>Score</th><th>"A photo of a W"</th><th>Score</th></tr></thead>
+                    <tr><td>wallace</td><td>0.2607</td><td><strong>A photo of a cartoon</strong></td><td><strong>0.2688</strong></td></tr>
+                    <tr><td>morris</td><td>0.2598</td><td>A photo of a chester</td><td>0.2671</td></tr>
+                    <tr><td>advertisement</td><td>0.2595</td><td>A photo of a gordon</td><td>0.2661</td></tr>
+                    <tr><td>lycos</td><td>0.2549</td><td>A photo of a springer</td><td>0.2642</td></tr>
+                    <tr><td>dog</td><td>0.2542</td><td>A photo of a pointer</td><td>0.2639</td></tr>
+                    <tr><td>puppy</td><td>0.2524</td><td>A photo of a murphy</td><td>0.2625</td></tr>
+                    <tr><td>gauge</td><td>0.2507</td><td>A photo of a illustrations</td><td>0.2625</td></tr>
+                    <tr><td>watson</td><td>0.2500</td><td>A photo of a wallace</td><td>0.2620</td></tr>
+                </table>
+            </div>
+
+            <p class="chat correct">"a photo of room bed accommodations", 0.3323</p>
+            <div class="single_result">
+                <img src="https://live.staticflickr.com/2404/2020522557_d1aa0a1066_k.jpg">
+                <table>
+                    <thead><tr><th>"W"</th><th>Score</th><th>"A photo of a W"</th><th>Score</th></tr></thead>
+                    <tr><td>bedrooms</td><td>0.2861</td><td><strong>A photo of a suite</strong></td><td><strong>0.3018</strong></td></tr>
+                    <tr><td>beds</td><td>0.2825</td><td>A photo of a bedrooms</td><td>0.2998</td></tr>
+                    <tr><td>room</td><td>0.2800</td><td>A photo of a accommodations</td><td>0.2969</td></tr>
+                    <tr><td>bedroom</td><td>0.2793</td><td>A photo of a bedroom</td><td>0.2969</td></tr>
+                    <tr><td>rooms</td><td>0.2791</td><td>A photo of a suites</td><td>0.2913</td></tr>
+                    <tr><td>accommodations</td><td>0.2744</td><td>A photo of a bedding</td><td>0.2905</td></tr>
+                    <tr><td>accommodation</td><td>0.2717</td><td>A photo of a stayed</td><td>0.2896</td></tr>
+                    <tr><td>bed</td><td>0.2710</td><td>A photo of a lodging</td><td>0.2893</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <p>
+            The first thing that jumps out is that the top randomly-generated caption of <= 8 words (chosen from 10,000 candidates and shown with a green background) scores higher than
+            the best simple caption for all five images. In the case of the dog cartoon image, this difference is almost a full 0.1.
+        </p>
+        <p>
+            Then, notice that the top "natural" constructions (beginning "A photo of a") also score higher than the top single-word captions in all cases. In the first two images the
+            relevant word is the same ("sunset", "dog"), but for the other images the top phrase caption uses a different word than the top single-word caption.
+            What can we glean from "a photo of W" being consistently better than "W"? Since CLIP is trained on human-written captions, I think this shows that those do contain descriptions
+            of the image's medium as well as the subject. In that case, CLIP would consistently assign more meaning to "A photo of X" than "X" by itself,
+            which is what happens here over and over again.
+        </p>
+        <p>
+            That turn of phrase also has some semantic meaning, though, since the words are not the same between columns. I don't understand half the matches for the dog cartoon:
+            a photo of a "chester", "gordon", "springer", "pointer", "murphy", yet those all score higher than anything in the single-word column, where those words don't even appear.
+            The way humans conceptualise and refer to content - is that a dog, or a photo of a dog? - clearly makes some difference in the training data.
+        </p>
+        <p>
+            Not only do the free captions score much higher than the "photo of X" options, but it's remarkable what associations are implied in these captions. For example:
+
+            <ul>
+                <li>The "migration" in the sun photo's caption must be referring to the backlit flock of birds.</li>
+                <li>The dog photo is definitely a professional "portrait". (Not sure about "diesel".)</li>
+                <li>Stunningly, "a photo of woods fog autumn bench" captures the correct season, the correct weather, the correct setting, <em>and</em> a wooden structure in the image.</li>
+                <li>I thought the dog cartoon resembled mid-century "advertisement" illustration style before seeing this caption! And while I haven't been able to work out why "morris" is in
+                    there, surely "wallace" refers to Gromit of <em>Wallace and Gromit</em>?
+                    <div class="single_result">
+                        <img src="clip_challenge/wallace_and_gromit.jpg">
+                        <img src="https://live.staticflickr.com/840/43380549381_004601c7ac_h.jpg">
+                    </div>
+                </li>
+                <li>"room bed accommodations" is hotel language, and this photo definitely shows a hotel room.</li>
+            </ul>
+        </p>
+        <p>
+            For such a simple technique, CLIP is showing a fascinating ability to relate map multiple orthogonal concepts ("advertisement" and "puppy", "fog" and "autumn", "dog" and "portrait")
+            across text and image inputs. This is obviously not "reasoning", but I was not expecting CLIP to be so semantically strong.
+        </p>
+
+        <h2>Part 2: Search for Similarity</h2>
+
+        <p>
+            The next step was to find the pair of "regular" image (real photo, non-generated) and caption with the highest similarity, meaning they're as close as possible in CLIP-space.
+        </p>
+
+        <h3>Outline</h3>
+
+        <ol>
+            <li>I loaded and encoded 2,000 random images from the CIFAR-10 dataset (I ran out of VRAM when I tried to do more).
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+NUM_DATASET_IMAGES = 2000
+NUM_GLOBAL_CAPTIONS = MAX_CAPTIONS
+
+print(f"\n[Part 2] loading CIFAR-10 and sampling {NUM_DATASET_IMAGES} images...")
+cifar10 = datasets.CIFAR10(root="data/cifar10", train=True, download=True)
+total = len(cifar10)
+if NUM_DATASET_IMAGES > total:
+    NUM_DATASET_IMAGES = total
+
+# random subset of CIFAR-10 indices
+subset_indices = torch.randperm(total)[:NUM_DATASET_IMAGES]
+
+# encode sampled images with CLIP
+dataset_image_tensors = []
+dataset_labels = []
+for index in tqdm(subset_indices, desc="Part 2: loading CIFAR images"):
+    image, label = cifar10[index.item()]
+    img_tensor = preprocess(image).unsqueeze(0).to(device)
+    dataset_image_tensors.append(img_tensor)
+    dataset_labels.append(label)
+
+dataset_image_batch = torch.cat(dataset_image_tensors, dim=0)
+
+print(f"[Part 2] encoding {NUM_DATASET_IMAGES} CIFAR-10 images with CLIP...")
+with torch.no_grad():
+    dataset_image_features = model.encode_image(dataset_image_batch.to(device))
+dataset_image_features = normalise_features(dataset_image_features)
+                    </code>
+                </details>
+                </li>
+            <li>Then I generated 10,000 random captions from the same English word list I used previously, encoding them all upfront.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+# build a global pool of random captions from the 10k-word list
+print(f"[Part 2] generating {NUM_GLOBAL_CAPTIONS} random captions...")
+global_captions = []
+prefixes = ["", "a photo of", "a close-up of", "a scenic view of"]
+
+for _ in tqdm(range(NUM_GLOBAL_CAPTIONS), desc="Part 2: generating captions"):
+    length = random.randint(2, MAX_CAPTION_WORDS)
+    length = min(length, len(word_list))
+    chosen_words = random.sample(word_list, length)
+    prefix = random.choice(prefixes)
+
+    if prefix:
+        caption = prefix + " " + " ".join(chosen_words)
+    else:
+        caption = " ".join(chosen_words)
+
+    global_captions.append(caption)
+
+# I encode the random captions once to reuse for all CIFAR images, because it'd be too expensive to generate unique ones for each image
+print("[Part 2] encoding random captions with CLIP...")
+global_caption_features = encode_texts_in_batches(model, global_captions, device)
+                    </code>
+                </details>
+                </li>
+            <li>Finally, building a 2,000x10,000 similarity matrix allowed me to find the best matches.
+                <details>
+                    <summary>click to toggle code snippet</summary>
+                    <code>
+# again, cosine similarity = dot product because everything is normalised
+print("[Part 2] computing global similarity matrix...")
+sims = dataset_image_features @ global_caption_features.T  # [N_images, N_captions]
+                    </code>
+                </details>
+                </li>
+
+        <h3>Results</h3>
+
+        <p>The top eight most similar image-caption pairs:</p>
+
+        <div class="result_gallery">
+            <div class="single_result chat" style="margin-bottom: 2em">
+                <img src="clip_challenge/top_0_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a scenic view of hoped php camel"</th></tr></thead>
+                    <tr><td>0.3286</td></tr>
+                    <tr><td>label="bird"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_1_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"trucks wallpapers adrian guyana"</th></tr></thead>
+                    <tr><td>0.3247</td></tr>
+                    <tr><td>label="truck"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_2_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a scenic view of ultram containers input danish"</th></tr></thead>
+                    <tr><td>0.3218</td></tr>
+                    <tr><td>label="truck"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_3_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a close-up of mix taxi from writers"</th></tr></thead>
+                    <tr><td>0.3218</td></tr>
+                    <tr><td>label="automobile"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_4_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a scenic view of hoped php camel"</th></tr></thead>
+                    <tr><td>0.3208</td></tr>
+                    <tr><td>label="deer"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_5_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a scenic view of hoped php camel"</th></tr></thead>
+                    <tr><td>0.3179</td></tr>
+                    <tr><td>label="horse"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_6_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a close-up of eyes basename mlb"</th></tr></thead>
+                    <tr><td>0.3159</td></tr>
+                    <tr><td>label="cat"</td></tr>
+                </table>
+            </div>
+            <div class="single_result">
+                <img src="clip_challenge/top_7_free_pair.png" style="width: 9em;">
+                <table style="margin-top: 2em"> <thead><tr><th>"a scenic view of hoped php camel"</th></tr></thead>
+                    <tr><td>0.3145</td></tr>
+                    <tr><td>label="horse"</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <p>
+            No, none of these fare better than the highest score, 0.3647, in Part 1. The highest score here is 0.3286. In retrospect, I should've begun with the highest-scoring pair from Part 1
+            and done transformations on that. Instead, my approach at each caption generation was to randomly pick from a small list of prefixes -
+            none, "a photo of", "a close-up of", or "a scenic view of" - and then do the same random word selection I used for the free-caption portion of Part 1.
+        </p>
+        <p>
+            Why does "a scenic view of hoped php camel" show up in 4/8 of the best pairs I found using this process? I think this is showing us two downsides of CLIP.
+            Firstly, "camel" might be a confusing enough visual concept that it ends up sending the vector in the general animal direction. The real labels of the afflicted images are indeed
+            "bird", "deer", and "horse" twice. This might give the caption a headstart. Then, "a scenic view" could be one of those phrases which increases similarity purely because it's
+            more like human-authored captions, similar to what we saw with "a photo of a" in Part 1. I'm not sure whether this is quite it, since "hoped php" is rather baffling and the
+            32x32-pixel resolution of these images can't be helping (CLIP can handle at least 224x224 pixels).
+        </p>
+        <p>
+            Still, we once again observe semantic relevance, if less than in Part 1. "Truck" is correct for the second image, and "taxi" seems more accurate than the dataset's label
+            <em>automobile</em>. I'm impressed by the cat pair; ignoring "basename mlb", that <em>is</em> "a close-up of eyes".
+        </p>
+
+        <h2>The "Modality Gap": Takeaways</h2>
+
+        <p>
+            CLIP's workings become more transparent in an exercise like this. The highest-scoring caption is not necessarily the most "sensible" human-readable one (though it's sometimes
+            fairly intelligible), but rather the one whose words make its CLIP-space vector "point the same way" as the matching image's vector, in the dimensions that matter.
+            There is some meaning captured in these vectors, with several impressively accurate pairings for a high-performance technique which was viable a few years before large language models.
+            However, CLIP obviously does not have the deep knowledge or semantic extraction capabilities of a (vastly more expensive) multi-modal LLM.
+        </p>
+    <main>
+</body>
+
+</html>
+-->
