@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>felix-u</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          // font-family: sans-serif;
+          // font-size: 14px;
+        }
+
+        th, td {
+          border: 1px solid #ccc;
+          padding: 4px 8px;
+          text-align: left;
+        }
+
+        thead {
+          background: #e0e0e0;
+        }
+
+        img.chat {
+            max-width: 100%;
+            height: auto;
+        }
+
+        code {
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <h1><a href="../index.html">felix-u</a></h1>
+    <h2>Project Proposal: Recreating Apple's "Spatial Scenes"</h2>
+
+    <main>
+        <p>
+            TL;DR: For the final project, I would like to investigate and recreate, to the extent practical,
+            Apple's new "spatial scene" feature, which adds an interactive 3D depth effect to entirely 2D images.
+        </p>
+
+        <h3>Inspiration</h3>
+
+        <p>
+            Apple's "spatial scene" feature in iOS 26 (available on iPhone 12 and newer) adds a 3D depth effect to 2D images.
+            It needs <em>no</em> camera metadata and <em>no</em> depth information. Here it is on a couple photos I downloaded from <a href="https://unsplash.com/">Unsplash</a>:
+        </p>
+
+        <div class="chat">
+            <div style="display: flex; width: 100%;">
+                <img src="2.jpg" style="width: 100%;">
+                <img src="2.gif" style="width: 100%;">
+            </div>
+            <div style="display: flex; width: 100%;">
+                <img src="3.jpg" style="width: 100%;">
+                <img src="3.gif" style="width: 100%;">
+            </div>
+        </div>
+
+        <p>
+            That is extraordinarily good! Look closely:
+        </p>
+
+        <div class="chat">
+            <img src="2_small.gif" style="max-width: 100%; height: auto; display: block;">
+            <img src="3_small.gif" style="max-width: 100%; height: auto; display: block;">
+        </div>
+
+        <h3>What do we know?</h3>
+
+        <p>
+            I couldn't find any explanation from Apple on how this works. This <a href="https://www.macrumors.com/how-to/ios-3d-lock-screen-effect-spatial-scenes/">MacRumors article</a>
+            says Spatial Scenes uses "generative AI that analyzes your photos to identify different elements and create depth maps." My guess is that they're doing two things:
+        </p>
+        <ol>
+            <li>Generating a depth-map and using it to shift pixels based on some relative perspective change.</li>
+            <li>
+                Identifying discrete "layers" in the depth map and doing some sort of naive generative fill on each,
+                so that parts occluded in the original image can be "revealed" in the Spatial Scene. If we look more closely, we can see the fill is <em>just</em> good enough
+                to be superficially convincing:
+                <div class="chat" style="display: flex; margin-top: 1em;">
+                    <img src="2_fill.jpg" style="width: 100%;">
+                    <img src="3_fill.jpg" style="width: 100%;">
+                </div>
+            </li>
+        </ol>
+
+        <h3>Scope and possible approach</h3>
+
+        <p>
+            To make sure I have a presentable "product" as early as possible, with flexible scope, I will work "backwards".
+            That is, instead of beginning with a depth-less, metadata-less 2D image and work towards an interactive 3D depth scene, I will begin with an image + depth map pair and have
+            the interactive scene viewer first. Shifting pixels based on depth seems quite doable, and I've already found these
+            <a href="https://discuss.pytorch.org/t/apply-affine-transform-based-on-depth-map/173978">two</a>
+            <a href="https://anandksub.dev/blog/depth_point_warp">pages</a>
+            which might help.
+        </p>
+
+        <p>
+            As for the generative fill, there are two ways I can think of to do this. I believe both require isolating discrete depth layers/regions from the initial continuous pixel depth map.
+            <ol>
+                <li>
+                    Upscale closer layers relative to further ones.
+                    With the right limit on perspective change, this will only ever reveal further content "underneath" the closer content which is present in the original image.
+                </li>
+                <li>
+                    Fill inwards using the pixel values from the cutout border. Perhaps apply some blur or other effects.
+                </li>
+            </ol>
+            Again, see above: this effect doesn't need to be <em>great</em> to be convincing.
+        </p>
+
+        <p>
+            At this point I'd have a "Spatial Scene viewer", but with a manually input depth map.
+            The next step would be to find a way to generate such a depth map from a standalone 2D image.
+            I could do either or both of the following:
+            <ol>
+                <li>
+                    Generate a pixel depth map using the best locally computable technique I can find - likely using an AI model.
+                </li>
+                <li>
+                    Make it really easy to generate a layer-based depth map by drawing rough bounding boxes around objects and specifying relative distance. Refine selections using
+                    segmentation, edge detection, and/or any other techniques I can find.
+                </li>
+            </ol>
+        </p>
+
+        <h3>Rough mock-up</h3>
+
+        <p>TODO</p>
+
+    </main>
+</body>
+</html>
