@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calibrator</title>
+
+    <style>
+        html, body { height: 100%; margin: 0; }
+        body { display: flex; flex-direction: column; overflow: hidden; font-family: system-ui, sans-serif; }
+
+        #mainRow { flex: 1; display: flex; overflow: hidden; }
+
+        .pane { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+        .toolbar { display: flex; gap: 8px; align-items: center; padding: 8px; border-bottom: 1px solid #ddd; }
+        .toolbar input { flex: 1; padding: 6px 8px; }
+        .toolbar button { padding: 6px 10px; }
+        .error { color: #b00020; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+
+        #leftPane { width: 50vw; }
+        #rightPane { width: 50vw; }
+
+        #divider {
+            width: 14px;
+            background: #c7c7c7;
+            cursor: col-resize;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        #divider:hover { background: #a9a9a9; }
+
+        #dividerKnob {
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
+            color: #333;
+            opacity: 0.9;
+        }
+
+        #imageViewport { position: relative; flex: 1; overflow: hidden; background: #111; }
+        #imageLayer { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+        #leftImage { display: block; }
+
+        #overlaySvg {
+            position: absolute;
+            left: 0;
+            top: 0;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        #imageHint {
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            padding: 6px 8px;
+            font-size: 12px;
+            color: #eee;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            user-select: none;
+            pointer-events: none;
+            z-index: 6;
+        }
+
+        #rotateButton {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+            z-index: 6;
+        }
+
+        #mapWrap { position: relative; flex: 1; overflow: hidden; }
+        #mapFrame { width: 100%; height: 100%; border: 0; display: block; }
+
+        #bottomPanel {
+            display: flex;
+            gap: 16px;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            background: #f7f7f7;
+            font-size: 13px;
+            overflow: hidden;
+        }
+
+        #bottomLeft { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+        #bottomRight { width: 360px; display: flex; flex-direction: column; gap: 8px; }
+
+        .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+        .block { display: flex; gap: 8px; align-items: center; }
+        .label { opacity: 0.75; }
+        .value { font-variant-numeric: tabular-nums; }
+        .smallInput { width: 120px; padding: 4px 6px; }
+        .smallButton { padding: 5px 8px; }
+        .modeTag { padding: 2px 6px; border: 1px solid #ccc; border-radius: 999px; background: #fff; font-size: 12px; }
+        .hintTag { opacity: 0.8; font-size: 12px; }
+
+        .rightCard {
+            border: 1px solid #ddd;
+            background: #fff;
+            padding: 10px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .rightTitle { font-weight: 600; }
+        .muted { color: #8a8a8a; }
+        .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    </style>
+</head>
+
+<body>
+
+    <div id="mainRow">
+
+        <div id="leftPane" class="pane">
+            <div class="toolbar">
+                <input id="imageUrl" type="text" spellcheck="false" />
+                <button id="loadImage">Load</button>
+                <div id="imageError" class="error"></div>
+            </div>
+
+            <div id="imageViewport">
+                <div id="imageLayer">
+                    <img id="leftImage" alt="Left image" src="https://placehold.co/1600x900?text=Image" />
+                    <svg id="overlaySvg"></svg>
+                </div>
+
+                <div id="imageHint">Scroll to zoom. Click and drag to pan.</div>
+                <button id="rotateButton" type="button">Rotate to match horizon</button>
+            </div>
+        </div>
+
+        <div id="divider">
+            <div id="dividerKnob">◀ ▶</div>
+        </div>
+
+        <div id="rightPane" class="pane">
+            <div class="toolbar">
+                <input id="mapQuery" type="text" spellcheck="false" placeholder="Search Google Maps..." />
+                <button id="searchMap">Search</button>
+            </div>
+
+            <div id="mapWrap">
+                <iframe
+                    id="mapFrame"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    src="https://www.google.com/maps?q=Madison%2C%20WI&z=4&output=embed">
+                </iframe>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="bottomPanel">
+
+        <div id="bottomLeft">
+
+            <div class="row">
+                <div class="block">
+                    <span class="label">Mode:</span>
+                    <span id="modeTag" class="modeTag">none</span>
+                </div>
+
+                <div class="block">
+                    <span class="label">Horizon angle:</span>
+                    <span id="horizonAngle" class="value">unset</span>
+                    <button id="clearHorizon" class="smallButton">Clear</button>
+                    <span id="horizonDrawHint" class="hintTag">To draw horizon line, hold shift while clicking and dragging</span>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="block">
+                    <span class="label">Camera GPS:</span>
+                    <span id="cameraGps" class="value">unset</span>
+                    <input id="cameraLat" class="smallInput" type="text" placeholder="lat" />
+                    <input id="cameraLng" class="smallInput" type="text" placeholder="lng" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="block">
+                    <span class="label">Horizon point A:</span>
+                    <span id="pointAStatus" class="value">unset</span>
+                    <input id="pointALat" class="smallInput" type="text" placeholder="A lat" />
+                    <input id="pointALng" class="smallInput" type="text" placeholder="A lng" />
+                    <button id="setPointA" class="smallButton">Pick A on image</button>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="block">
+                    <span class="label">Horizon point B:</span>
+                    <span id="pointBStatus" class="value">unset</span>
+                    <input id="pointBLat" class="smallInput" type="text" placeholder="B lat" />
+                    <input id="pointBLng" class="smallInput" type="text" placeholder="B lng" />
+                    <button id="setPointB" class="smallButton">Pick B on image</button>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="bottomRight">
+            <div class="rightCard">
+                <div class="rightTitle">Camera solve</div>
+
+                <div class="block">
+                    <span class="label">Camera FOV:</span>
+                    <span id="solveFov" class="value muted">you haven't provided all parameters</span>
+                </div>
+
+                <div class="block">
+                    <span class="label">Full-frame equiv:</span>
+                    <span id="solveFf" class="value muted">you haven't provided all parameters</span>
+                </div>
+
+                <div class="block">
+                    <span class="label">Camera orientation:</span>
+                    <span id="solveOri" class="value muted">you haven't provided all parameters</span>
+                </div>
+
+                <div class="block">
+                    <span class="label">Details:</span>
+                    <span id="solveDetail" class="value muted">you haven't provided all parameters</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        "use strict";
+
+        var PIXELATED_ZOOM_THRESHOLD = 8.0;
+        var IMAGE_LOAD_TIMEOUT_MS = 8000;
+
+        var leftPane = document.getElementById("leftPane");
+        var rightPane = document.getElementById("rightPane");
+        var divider = document.getElementById("divider");
+
+        var imageViewport = document.getElementById("imageViewport");
+        var imageLayer = document.getElementById("imageLayer");
+        var leftImage = document.getElementById("leftImage");
+        var overlaySvg = document.getElementById("overlaySvg");
+
+        var imageUrl = document.getElementById("imageUrl");
+        var loadImage = document.getElementById("loadImage");
+        var imageError = document.getElementById("imageError");
+
+        var rotateButton = document.getElementById("rotateButton");
+
+        var mapFrame = document.getElementById("mapFrame");
+        var mapQuery = document.getElementById("mapQuery");
+        var searchMap = document.getElementById("searchMap");
+
+        var modeTag = document.getElementById("modeTag");
+
+        var horizonAngle = document.getElementById("horizonAngle");
+        var clearHorizon = document.getElementById("clearHorizon");
+        var horizonDrawHint = document.getElementById("horizonDrawHint");
+
+        var cameraGps = document.getElementById("cameraGps");
+        var cameraLat = document.getElementById("cameraLat");
+        var cameraLng = document.getElementById("cameraLng");
+
+        var pointAStatus = document.getElementById("pointAStatus");
+        var pointALat = document.getElementById("pointALat");
+        var pointALng = document.getElementById("pointALng");
+        var setPointA = document.getElementById("setPointA");
+
+        var pointBStatus = document.getElementById("pointBStatus");
+        var pointBLat = document.getElementById("pointBLat");
+        var pointBLng = document.getElementById("pointBLng");
+        var setPointB = document.getElementById("setPointB");
+
+        var solveFov = document.getElementById("solveFov");
+        var solveFf = document.getElementById("solveFf");
+        var solveOri = document.getElementById("solveOri");
+        var solveDetail = document.getElementById("solveDetail");
+
+        var params = new URLSearchParams(location.search);
+        var imgParam = params.get("img");
+        var qParam = params.get("q");
+
+        if (imgParam) leftImage.src = imgParam;
+        if (qParam) mapFrame.src = "https://www.google.com/maps?q=" + encodeURIComponent(qParam) + "&z=4&output=embed";
+
+        imageUrl.value = leftImage.currentSrc || leftImage.src;
+        mapQuery.value = qParam || "Madison, WI";
+
+        var dividerDragging = false;
+
+        divider.addEventListener("mousedown", function (e) {
+            dividerDragging = true;
+            document.body.style.userSelect = "none";
+            mapFrame.style.pointerEvents = "none";
+            e.preventDefault();
+        });
+
+        window.addEventListener("mousemove", function (e) {
+            if (!dividerDragging) return;
+
+            var x = e.clientX;
+            var w = window.innerWidth;
+            var min = 200;
+            var max = w - 200;
+            if (x < min) x = min;
+            if (x > max) x = max;
+
+            leftPane.style.width = x + "px";
+            rightPane.style.width = (w - x - divider.offsetWidth) + "px";
+
+            recalcFitIfNeeded();
+        });
+
+        window.addEventListener("mouseup", function () {
+            dividerDragging = false;
+            document.body.style.userSelect = "";
+            mapFrame.style.pointerEvents = "";
+        });
+
+        function setMapQuery(q) {
+            var url = "https://www.google.com/maps?q=" + encodeURIComponent(q) + "&z=4&output=embed";
+            mapFrame.src = url;
+            mapQuery.value = q;
+        }
+
+        searchMap.addEventListener("click", function () {
+            var q = mapQuery.value.trim();
+            if (!q) return;
+            setMapQuery(q);
+        });
+
+        mapQuery.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                searchMap.click();
+            }
+        });
+
+        function fmtNum(x, digits) {
+            if (typeof x !== "number" || !isFinite(x)) return "unset";
+            return x.toFixed(digits);
+        }
+
+        function fmtDeg(rad, digits) {
+            if (typeof rad !== "number" || !isFinite(rad)) return "unset";
+            return (rad * 180.0 / Math.PI).toFixed(digits) + "°";
+        }
+
+        function parseMaybeFloat(s) {
+            if (!s) return null;
+            var v = parseFloat(s);
+            if (!isFinite(v)) return null;
+            return v;
+        }
+
+        function wrapPi(a) {
+            while (a > Math.PI) a -= Math.PI * 2.0;
+            while (a < -Math.PI) a += Math.PI * 2.0;
+            return a;
+        }
+
+        function clamp(x, lo, hi) {
+            if (x < lo) return lo;
+            if (x > hi) return hi;
+            return x;
+        }
+
+        function bearingRadians(lat1Deg, lon1Deg, lat2Deg, lon2Deg) {
+            var lat1 = lat1Deg * Math.PI / 180.0;
+            var lon1 = lon1Deg * Math.PI / 180.0;
+            var lat2 = lat2Deg * Math.PI / 180.0;
+            var lon2 = lon2Deg * Math.PI / 180.0;
+
+            var dLon = lon2 - lon1;
+            var y = Math.sin(dLon) * Math.cos(lat2);
+            var x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+            return Math.atan2(y, x);
+        }
+
+        var baseFitScale = 1.0;
+        var userScale = 1.0;
+        var offsetX = 0.0;
+        var offsetY = 0.0;
+        var viewRotation = 0.0;
+
+        var panning = false;
+        var panStartX = 0.0;
+        var panStartY = 0.0;
+        var panStartOffsetX = 0.0;
+        var panStartOffsetY = 0.0;
+
+        var tool = "none"; /* none | pointA | pointB */
+        var horizonP0 = null;
+        var horizonP1 = null;
+
+        var placingHorizon = false;
+        var editingHorizon = false;
+        var editWhich = -1;
+
+        var pointAImage = null;
+        var pointBImage = null;
+
+        var previewPoint = null;
+        var previewText = "";
+
+        function setTool(t) {
+            tool = t;
+            modeTag.textContent = t;
+            previewPoint = null;
+            previewText = "";
+            redrawOverlay();
+        }
+
+        setPointA.addEventListener("click", function () {
+            if (setPointA.disabled) return;
+            setTool("pointA");
+        });
+
+        setPointB.addEventListener("click", function () {
+            if (setPointB.disabled) return;
+            setTool("pointB");
+        });
+
+        function currentHorizonAngleRadians() {
+            if (horizonP0 === null || horizonP1 === null) return 0.0;
+            return Math.atan2(horizonP1.y - horizonP0.y, horizonP1.x - horizonP0.x);
+        }
+
+        rotateButton.addEventListener("click", function () {
+            if (horizonP0 === null || horizonP1 === null) return;
+            viewRotation = -currentHorizonAngleRadians();
+            applyImageTransform();
+        });
+
+        function applyImageTransform() {
+            var s = baseFitScale * userScale;
+
+            imageLayer.style.transform =
+                "translate(" + offsetX + "px, " + offsetY + "px) " +
+                "rotate(" + viewRotation + "rad) " +
+                "scale(" + s + ")";
+
+            if (userScale >= PIXELATED_ZOOM_THRESHOLD) {
+                leftImage.style.imageRendering = "pixelated";
+            } else {
+                leftImage.style.imageRendering = "auto";
+            }
+        }
+
+        function recalcFitIfNeeded() {
+            if (!leftImage.naturalWidth || !leftImage.naturalHeight) return;
+
+            var vh = imageViewport.clientHeight;
+            var newBase = vh / leftImage.naturalHeight; /* fit to vertical only */
+
+            var oldBase = baseFitScale;
+            baseFitScale = newBase;
+
+            if (oldBase > 0) {
+                var scaleRatio = baseFitScale / oldBase;
+                offsetX *= scaleRatio;
+                offsetY *= scaleRatio;
+            }
+
+            syncOverlaySizing();
+            applyImageTransform();
+        }
+
+        function loadImageFromUrl(url) {
+            imageError.textContent = "";
+
+            var test = new Image();
+            var done = false;
+
+            var timer = setTimeout(function () {
+                if (done) return;
+                done = true;
+                imageError.textContent = "Timed out loading image.";
+            }, IMAGE_LOAD_TIMEOUT_MS);
+
+            test.onload = function () {
+                if (done) return;
+                done = true;
+                clearTimeout(timer);
+
+                leftImage.src = url;
+                imageUrl.value = url;
+
+                userScale = 1.0;
+                offsetX = 0.0;
+                offsetY = 0.0;
+                viewRotation = 0.0;
+
+                horizonP0 = null;
+                horizonP1 = null;
+
+                pointAImage = null;
+                pointBImage = null;
+
+                previewPoint = null;
+                previewText = "";
+
+                setTool("none");
+
+                setTimeout(function () {
+                    syncOverlaySizing();
+                    recalcFitIfNeeded();
+                    redrawOverlay();
+                    updateBottomText();
+                }, 0);
+            };
+
+            test.onerror = function () {
+                if (done) return;
+                done = true;
+                clearTimeout(timer);
+                imageError.textContent = "Failed to load image (bad URL, blocked, or not an image).";
+            };
+
+            test.referrerPolicy = "no-referrer";
+            test.src = url;
+        }
+
+        loadImage.addEventListener("click", function () {
+            var url = imageUrl.value.trim();
+            if (!url) return;
+            loadImageFromUrl(url);
+        });
+
+        imageUrl.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                loadImage.click();
+            }
+        });
+
+        function syncOverlaySizing() {
+            var w = leftImage.naturalWidth || 0;
+            var h = leftImage.naturalHeight || 0;
+
+            overlaySvg.setAttribute("width", w);
+            overlaySvg.setAttribute("height", h);
+            overlaySvg.setAttribute("viewBox", "0 0 " + w + " " + h);
+        }
+
+        function screenToImage(clientX, clientY) {
+            var rect = imageViewport.getBoundingClientRect();
+            var x = clientX - rect.left;
+            var y = clientY - rect.top;
+
+            x -= offsetX;
+            y -= offsetY;
+
+            var c = Math.cos(-viewRotation);
+            var s = Math.sin(-viewRotation);
+
+            var rx = x * c - y * s;
+            var ry = x * s + y * c;
+
+            var inv = 1.0 / (baseFitScale * userScale);
+            return { x: rx * inv, y: ry * inv };
+        }
+
+        function dist2(a, b) {
+            var dx = a.x - b.x;
+            var dy = a.y - b.y;
+            return dx * dx + dy * dy;
+        }
+
+        function clampToImage(p) {
+            var w = leftImage.naturalWidth || 0;
+            var h = leftImage.naturalHeight || 0;
+            if (p.x < 0) p.x = 0;
+            if (p.y < 0) p.y = 0;
+            if (p.x > w) p.x = w;
+            if (p.y > h) p.y = h;
+            return p;
+        }
+
+        function projectToHorizon(p) {
+            if (horizonP0 === null || horizonP1 === null) return p;
+
+            var ax = horizonP0.x;
+            var ay = horizonP0.y;
+            var bx = horizonP1.x;
+            var by = horizonP1.y;
+
+            var vx = bx - ax;
+            var vy = by - ay;
+            var denom = vx * vx + vy * vy;
+            if (denom <= 1e-12) return p;
+
+            var t = ((p.x - ax) * vx + (p.y - ay) * vy) / denom;
+            return { x: ax + t * vx, y: ay + t * vy };
+        }
+
+        function ensurePointsOnHorizon() {
+            if (horizonP0 === null || horizonP1 === null) return;
+
+            if (pointAImage !== null) pointAImage = projectToHorizon(pointAImage);
+            if (pointBImage !== null) pointBImage = projectToHorizon(pointBImage);
+        }
+
+        function svgClear() {
+            while (overlaySvg.firstChild) overlaySvg.removeChild(overlaySvg.firstChild);
+        }
+
+        function svgLine(x1, y1, x2, y2, stroke, width) {
+            var el = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            el.setAttribute("x1", x1);
+            el.setAttribute("y1", y1);
+            el.setAttribute("x2", x2);
+            el.setAttribute("y2", y2);
+            el.setAttribute("stroke", stroke);
+            el.setAttribute("stroke-width", width);
+            el.setAttribute("stroke-linecap", "round");
+            overlaySvg.appendChild(el);
+            return el;
+        }
+
+        function svgCircle(cx, cy, r, fill, stroke, sw) {
+            var el = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            el.setAttribute("cx", cx);
+            el.setAttribute("cy", cy);
+            el.setAttribute("r", r);
+            el.setAttribute("fill", fill);
+            el.setAttribute("stroke", stroke);
+            el.setAttribute("stroke-width", sw);
+            overlaySvg.appendChild(el);
+            return el;
+        }
+
+        function svgText(x, y, text, fill) {
+            var el = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            el.setAttribute("x", x);
+            el.setAttribute("y", y);
+            el.setAttribute("fill", fill);
+            el.setAttribute("font-size", "18");
+            el.setAttribute("font-family", "system-ui, sans-serif");
+            el.textContent = text;
+            overlaySvg.appendChild(el);
+            return el;
+        }
+
+        function redrawOverlay() {
+            svgClear();
+
+            if (horizonP0 !== null && horizonP1 !== null) {
+                svgLine(horizonP0.x, horizonP0.y, horizonP1.x, horizonP1.y, "rgba(255,255,0,0.95)", 3);
+                svgCircle(horizonP0.x, horizonP0.y, 10, "rgba(255,255,0,0.95)", "rgba(0,0,0,0.7)", 3);
+                svgCircle(horizonP1.x, horizonP1.y, 10, "rgba(255,255,0,0.95)", "rgba(0,0,0,0.7)", 3);
+            }
+
+            if (pointAImage !== null) {
+                svgCircle(pointAImage.x, pointAImage.y, 8, "rgba(0,200,255,0.95)", "rgba(0,0,0,0.7)", 2);
+                svgText(pointAImage.x + 12, pointAImage.y - 12, "A", "rgba(0,200,255,0.95)");
+            }
+
+            if (pointBImage !== null) {
+                svgCircle(pointBImage.x, pointBImage.y, 8, "rgba(255,120,0,0.95)", "rgba(0,0,0,0.7)", 2);
+                svgText(pointBImage.x + 12, pointBImage.y - 12, "B", "rgba(255,120,0,0.95)");
+            }
+
+            if (pointAImage !== null && pointBImage !== null) {
+                svgLine(pointAImage.x, pointAImage.y, pointBImage.x, pointBImage.y, "rgba(255,255,255,0.7)", 2);
+            }
+
+            if (previewPoint !== null) {
+                svgCircle(previewPoint.x, previewPoint.y, 7, "rgba(255,255,255,0.20)", "rgba(255,255,255,0.85)", 2);
+                svgText(previewPoint.x + 12, previewPoint.y - 12, previewText, "rgba(255,255,255,0.9)");
+            }
+
+            updateBottomText();
+        }
+
+        function setSolveMuted() {
+            solveFov.classList.add("muted");
+            solveFf.classList.add("muted");
+            solveOri.classList.add("muted");
+            solveDetail.classList.add("muted");
+
+            solveFov.textContent = "you haven't provided all parameters";
+            solveFf.textContent = "you haven't provided all parameters";
+            solveOri.textContent = "you haven't provided all parameters";
+            solveDetail.textContent = "you haven't provided all parameters";
+        }
+
+        function setSolveValues(fovDeg, equivMm, yawDeg, yawCardinal, pitchDeg, rollDeg, fPx) {
+            solveFov.classList.remove("muted");
+            solveFf.classList.remove("muted");
+            solveOri.classList.remove("muted");
+            solveDetail.classList.remove("muted");
+
+            solveFov.textContent = fovDeg.toFixed(3) + "° (horizontal)";
+            solveFf.textContent = equivMm.toFixed(2) + " mm (full-frame equiv)";
+            solveOri.textContent = "yaw " + yawDeg.toFixed(2) + "° (" + yawCardinal + "), pitch " + pitchDeg.toFixed(2) + "°, roll " + rollDeg.toFixed(2) + "°";
+            solveDetail.textContent = "f " + fPx.toFixed(2) + " px";
+            solveDetail.classList.add("mono");
+        }
+
+        function rotatePointAround(p, cx, cy, angleRad) {
+            var x = p.x - cx;
+            var y = p.y - cy;
+            var c = Math.cos(angleRad);
+            var s = Math.sin(angleRad);
+            return { x: cx + x * c - y * s, y: cy + x * s + y * c };
+        }
+
+        function horizonYAtX(h0, h1, x) {
+            var dx = h1.x - h0.x;
+            var dy = h1.y - h0.y;
+            if (Math.abs(dx) < 1e-12) return (h0.y + h1.y) * 0.5;
+            var t = (x - h0.x) / dx;
+            return h0.y + t * dy;
+        }
+
+        function solveCameraIfReady() {
+            var w = leftImage.naturalWidth || 0;
+            var h = leftImage.naturalHeight || 0;
+            if (!w || !h) { setSolveMuted(); return; }
+
+            if (horizonP0 === null || horizonP1 === null) { setSolveMuted(); return; }
+            if (pointAImage === null || pointBImage === null) { setSolveMuted(); return; }
+
+            var clat = parseMaybeFloat(cameraLat.value);
+            var clng = parseMaybeFloat(cameraLng.value);
+            var alat = parseMaybeFloat(pointALat.value);
+            var alng = parseMaybeFloat(pointALng.value);
+            var blat = parseMaybeFloat(pointBLat.value);
+            var blng = parseMaybeFloat(pointBLng.value);
+
+            if (clat === null || clng === null) { setSolveMuted(); return; }
+            if (alat === null || alng === null) { setSolveMuted(); return; }
+            if (blat === null || blng === null) { setSolveMuted(); return; }
+
+            var roll = currentHorizonAngleRadians();
+            var cx = w * 0.5;
+            var cy = h * 0.5;
+
+            var rot = -roll;
+            var h0r = rotatePointAround(horizonP0, cx, cy, rot);
+            var h1r = rotatePointAround(horizonP1, cx, cy, rot);
+            var ar = rotatePointAround(pointAImage, cx, cy, rot);
+            var br = rotatePointAround(pointBImage, cx, cy, rot);
+
+            var bearingA = bearingRadians(clat, clng, alat, alng);
+            var bearingB = bearingRadians(clat, clng, blat, blng);
+
+            var deltaBearing = wrapPi(bearingB - bearingA);
+
+            var xA = ar.x - cx;
+            var xB = br.x - cx;
+
+            if (Math.abs(deltaBearing) < 1e-8) { setSolveMuted(); return; }
+            if (Math.abs(xA - xB) < 1e-8) { setSolveMuted(); return; }
+
+            var fLo = 1.0;
+            var fHi = 100000.0;
+            var i;
+            for (i = 0; i < 80; i += 1) {
+                var f = (fLo + fHi) * 0.5;
+                var aA = Math.atan2(xA, f);
+                var aB = Math.atan2(xB, f);
+                var d = wrapPi(aB - aA);
+
+                if (d > deltaBearing) {
+                    fLo = f;
+                } else {
+                    fHi = f;
+                }
+            }
+
+            var fPx = (fLo + fHi) * 0.5;
+            var alphaA = Math.atan2(xA, fPx);
+            var yaw = wrapPi(bearingA - alphaA);
+
+            var yH = horizonYAtX(h0r, h1r, cx);
+            var pitch = -Math.atan2((cy - yH), fPx);
+
+            var hfov = 2.0 * Math.atan2((w * 0.5), fPx);
+            var hfovDeg = hfov * 180.0 / Math.PI;
+
+            var equivMm = 36.0 / (2.0 * Math.tan(hfov * 0.5));
+
+            var yawDeg = ((yaw * 180.0 / Math.PI) % 360.0 + 360.0) % 360.0;
+            var pitchDeg = pitch * 180.0 / Math.PI;
+            var rollDeg = roll * 180.0 / Math.PI;
+
+            var yawCardinal = "N";
+            {
+                var dirs = ["N","NE","E","SE","S","SW","W","NW"];
+                var idx = Math.floor((yawDeg + 22.5) / 45.0) % 8;
+                yawCardinal = dirs[idx];
+            }
+
+            if (!isFinite(hfovDeg) || !isFinite(equivMm) || !isFinite(yawDeg) || !isFinite(pitchDeg) || !isFinite(rollDeg)) {
+                setSolveMuted();
+                return;
+            }
+
+            setSolveValues(hfovDeg, equivMm, yawDeg, yawCardinal, pitchDeg, rollDeg, fPx);
+        }
+
+        function updateBottomText() {
+            var clat = parseMaybeFloat(cameraLat.value);
+            var clng = parseMaybeFloat(cameraLng.value);
+            if (clat === null || clng === null) {
+                cameraGps.textContent = "unset";
+            } else {
+                cameraGps.textContent = fmtNum(clat, 6) + ", " + fmtNum(clng, 6);
+            }
+
+            var alat = parseMaybeFloat(pointALat.value);
+            var alng = parseMaybeFloat(pointALng.value);
+            var blat = parseMaybeFloat(pointBLat.value);
+            var blng = parseMaybeFloat(pointBLng.value);
+
+            pointAStatus.textContent = (pointAImage !== null ? "image set" : "image unset") + " / " + ((alat !== null && alng !== null) ? "map set" : "map unset");
+            pointBStatus.textContent = (pointBImage !== null ? "image set" : "image unset") + " / " + ((blat !== null && blng !== null) ? "map set" : "map unset");
+
+            if (horizonP0 === null || horizonP1 === null) {
+                horizonAngle.textContent = "unset";
+                horizonDrawHint.style.display = "inline";
+                setPointA.disabled = true;
+                setPointB.disabled = true;
+                if (tool === "pointA" || tool === "pointB") setTool("none");
+            } else {
+                horizonAngle.textContent = fmtDeg(currentHorizonAngleRadians(), 3);
+                horizonDrawHint.style.display = "none";
+                setPointA.disabled = false;
+                setPointB.disabled = false;
+            }
+
+            solveCameraIfReady();
+        }
+
+        cameraLat.addEventListener("input", updateBottomText);
+        cameraLng.addEventListener("input", updateBottomText);
+        pointALat.addEventListener("input", updateBottomText);
+        pointALng.addEventListener("input", updateBottomText);
+        pointBLat.addEventListener("input", updateBottomText);
+        pointBLng.addEventListener("input", updateBottomText);
+
+        clearHorizon.addEventListener("click", function () {
+            horizonP0 = null;
+            horizonP1 = null;
+
+            viewRotation = 0.0;
+
+            pointAImage = null;
+            pointBImage = null;
+
+            previewPoint = null;
+            previewText = "";
+
+            setTool("none");
+
+            applyImageTransform();
+            redrawOverlay();
+            updateBottomText();
+        });
+
+        function horizonHitTest(p) {
+            if (horizonP0 === null || horizonP1 === null) return -1;
+
+            var r = 14.0 / (baseFitScale * userScale);
+            var rr = r * r;
+
+            if (dist2(p, horizonP0) <= rr) return 0;
+            if (dist2(p, horizonP1) <= rr) return 1;
+            return -1;
+        }
+
+        imageViewport.addEventListener("mousemove", function (e) {
+            if (tool === "pointA" && horizonP0 !== null && horizonP1 !== null) {
+                previewPoint = projectToHorizon(clampToImage(screenToImage(e.clientX, e.clientY)));
+                previewText = "To place, hold shift and click";
+                redrawOverlay();
+                return;
+            }
+
+            if (tool === "pointB" && horizonP0 !== null && horizonP1 !== null) {
+                previewPoint = projectToHorizon(clampToImage(screenToImage(e.clientX, e.clientY)));
+                previewText = "To place, hold shift and click";
+                redrawOverlay();
+                return;
+            }
+
+            if (previewPoint !== null) {
+                previewPoint = null;
+                previewText = "";
+                redrawOverlay();
+            }
+        });
+
+        imageViewport.addEventListener("mouseleave", function () {
+            previewPoint = null;
+            previewText = "";
+            redrawOverlay();
+        });
+
+        imageViewport.addEventListener("mousedown", function (e) {
+            if (e.button !== 0) return;
+
+            var p = screenToImage(e.clientX, e.clientY);
+            var hit = horizonHitTest(p);
+
+            if (hit >= 0) {
+                editingHorizon = true;
+                editWhich = hit;
+                e.preventDefault();
+                return;
+            }
+
+            if (tool === "pointA" && e.shiftKey && horizonP0 !== null && horizonP1 !== null) {
+                pointAImage = projectToHorizon(clampToImage(p));
+                previewPoint = null;
+                previewText = "";
+                redrawOverlay();
+                setTool("none");
+                e.preventDefault();
+                return;
+            }
+
+            if (tool === "pointB" && e.shiftKey && horizonP0 !== null && horizonP1 !== null) {
+                pointBImage = projectToHorizon(clampToImage(p));
+                previewPoint = null;
+                previewText = "";
+                redrawOverlay();
+                setTool("none");
+                e.preventDefault();
+                return;
+            }
+
+            if (e.shiftKey) {
+                placingHorizon = true;
+                p = clampToImage(p);
+                horizonP0 = { x: p.x, y: p.y };
+                horizonP1 = { x: p.x, y: p.y };
+
+                ensurePointsOnHorizon();
+                redrawOverlay();
+                updateBottomText();
+
+                e.preventDefault();
+                return;
+            }
+
+            panning = true;
+            panStartX = e.clientX;
+            panStartY = e.clientY;
+            panStartOffsetX = offsetX;
+            panStartOffsetY = offsetY;
+
+            imageViewport.style.cursor = "grabbing";
+            e.preventDefault();
+        });
+
+        window.addEventListener("mousemove", function (e) {
+            if (placingHorizon) {
+                var p = clampToImage(screenToImage(e.clientX, e.clientY));
+                horizonP1 = { x: p.x, y: p.y };
+
+                ensurePointsOnHorizon();
+                redrawOverlay();
+                updateBottomText();
+                return;
+            }
+
+            if (editingHorizon) {
+                var p = clampToImage(screenToImage(e.clientX, e.clientY));
+                if (editWhich === 0) horizonP0 = { x: p.x, y: p.y };
+                if (editWhich === 1) horizonP1 = { x: p.x, y: p.y };
+
+                ensurePointsOnHorizon();
+                redrawOverlay();
+                updateBottomText();
+                return;
+            }
+
+            if (!panning) return;
+
+            offsetX = panStartOffsetX + (e.clientX - panStartX);
+            offsetY = panStartOffsetY + (e.clientY - panStartY);
+            applyImageTransform();
+        });
+
+        window.addEventListener("mouseup", function () {
+            placingHorizon = false;
+            editingHorizon = false;
+            editWhich = -1;
+
+            panning = false;
+            imageViewport.style.cursor = "";
+
+            redrawOverlay();
+        });
+
+        imageViewport.addEventListener("wheel", function (e) {
+            e.preventDefault();
+
+            if (!leftImage.naturalWidth || !leftImage.naturalHeight) return;
+
+            var rect = imageViewport.getBoundingClientRect();
+            var mx = e.clientX - rect.left;
+            var my = e.clientY - rect.top;
+
+            var oldS = baseFitScale * userScale;
+            var zoomIn = e.deltaY < 0;
+            var factor = zoomIn ? 1.12 : (1.0 / 1.12);
+
+            var newUserScale = userScale * factor;
+            if (newUserScale < 0.1) newUserScale = 0.1;
+            if (newUserScale > 200.0) newUserScale = 200.0;
+
+            var newS = baseFitScale * newUserScale;
+
+            offsetX = mx - (mx - offsetX) * (newS / oldS);
+            offsetY = my - (my - offsetY) * (newS / oldS);
+
+            userScale = newUserScale;
+            applyImageTransform();
+        }, { passive: false });
+
+        window.addEventListener("resize", function () {
+            recalcFitIfNeeded();
+        });
+
+        leftImage.addEventListener("load", function () {
+            imageUrl.value = leftImage.currentSrc || leftImage.src;
+            syncOverlaySizing();
+            recalcFitIfNeeded();
+            redrawOverlay();
+            updateBottomText();
+        });
+
+        function loadInit() {
+            setSolveMuted();
+            updateBottomText();
+            syncOverlaySizing();
+            recalcFitIfNeeded();
+            applyImageTransform();
+            redrawOverlay();
+        }
+
+        loadInit();
+    </script>
+
+</body>
+</html>
