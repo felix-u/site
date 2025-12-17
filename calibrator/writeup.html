@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>felix-u</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        .results_gallery {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 40px;
+          // max-width: 800px;
+          margin: 0 auto;
+        }
+
+        .single_result {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .single_result img {
+          width: 300px;
+          display: block;
+          margin-bottom: 0px;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          // font-family: sans-serif;
+          // font-size: 14px;
+        }
+
+        th, td {
+          border: 1px solid #ccc;
+          padding: 4px 8px;
+          text-align: left;
+        }
+
+        thead {
+          background: #e0e0e0;
+        }
+
+        img.chat {
+            max-width: 100%;
+            height: auto;
+        }
+
+        code {
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <h1><a href="../index.html">felix-u</a></h1>
+    <h2>Geographic camera calibration</h2>
+
+    <main>
+
+    <p>
+        Run the web app <a href="../calibrator.html">here</a>.
+    </p>
+
+    <img src="./screenshot.jpg" class="chat">
+
+    <h2>Problem</h2>
+
+    <p>Given the following information:</p>
+    <ul>
+        <li>camera position;</li>
+        <li>horizon line on an image; and</li>
+        <li>two points on the image's horizon, with known latitude/longitude, </li>
+    </ul>
+    <p>where is the camera looking, and what is its field of view?<p>
+
+    <h2>Solution</h2>
+
+    <p>
+        Everything feeding the "camera solution" panel in the bottom right of the interface is pulled together in <code>solveCameraIfReady()</code>.
+    </p>
+     <details>
+        <summary>click to toggle code snippet</summary>
+        <code>
+function solveCameraIfReady() {
+    var w = leftImage.naturalWidth || 0;
+    var h = leftImage.naturalHeight || 0;
+    if (!w || !h) { setSolveMuted(); return; }
+
+    if (horizonP0 === null || horizonP1 === null) { setSolveMuted(); return; }
+    if (pointAImage === null || pointBImage === null) { setSolveMuted(); return; }
+
+    var clat = parseMaybeFloat(cameraLat.value);
+    var clng = parseMaybeFloat(cameraLng.value);
+    var alat = parseMaybeFloat(pointALat.value);
+    var alng = parseMaybeFloat(pointALng.value);
+    var blat = parseMaybeFloat(pointBLat.value);
+    var blng = parseMaybeFloat(pointBLng.value);
+
+    if (clat === null || clng === null) { setSolveMuted(); return; }
+    if (alat === null || alng === null) { setSolveMuted(); return; }
+    if (blat === null || blng === null) { setSolveMuted(); return; }
+
+    var roll = currentHorizonAngleRadians();
+    var cx = w * 0.5;
+    var cy = h * 0.5;
+
+    var rot = -roll;
+    var h0r = rotatePointAround(horizonP0, cx, cy, rot);
+    var h1r = rotatePointAround(horizonP1, cx, cy, rot);
+    var ar = rotatePointAround(pointAImage, cx, cy, rot);
+    var br = rotatePointAround(pointBImage, cx, cy, rot);
+
+    var bearingA = bearingRadians(clat, clng, alat, alng);
+    var bearingB = bearingRadians(clat, clng, blat, blng);
+
+    var deltaBearing = wrapPi(bearingB - bearingA);
+
+    var xA = ar.x - cx;
+    var xB = br.x - cx;
+
+    if (Math.abs(deltaBearing) < 1e-8) { setSolveMuted(); return; }
+    if (Math.abs(xA - xB) < 1e-8) { setSolveMuted(); return; }
+
+    var fLo = 1.0;
+    var fHi = 100000.0;
+    var i;
+    for (i = 0; i < 80; i += 1) {
+        var f = (fLo + fHi) * 0.5;
+        var aA = Math.atan2(xA, f);
+        var aB = Math.atan2(xB, f);
+        var d = wrapPi(aB - aA);
+
+        if (d > deltaBearing) {
+            fLo = f;
+        } else {
+            fHi = f;
+        }
+    }
+
+    var fPx = (fLo + fHi) * 0.5;
+    var alphaA = Math.atan2(xA, fPx);
+    var yaw = wrapPi(bearingA - alphaA);
+
+    var yH = horizonYAtX(h0r, h1r, cx);
+    var pitch = -Math.atan2((cy - yH), fPx);
+
+    var hfov = 2.0 * Math.atan2((w * 0.5), fPx);
+    var hfovDeg = hfov * 180.0 / Math.PI;
+
+    var equivMm = 36.0 / (2.0 * Math.tan(hfov * 0.5));
+
+    var yawDeg = ((yaw * 180.0 / Math.PI) % 360.0 + 360.0) % 360.0;
+    var pitchDeg = pitch * 180.0 / Math.PI;
+    var rollDeg = roll * 180.0 / Math.PI;
+
+    var yawCardinal = "N";
+    {
+        var dirs = ["N","NE","E","SE","S","SW","W","NW"];
+        var idx = Math.floor((yawDeg + 22.5) / 45.0) % 8;
+        yawCardinal = dirs[idx];
+    }
+
+    if (!isFinite(hfovDeg) || !isFinite(equivMm) || !isFinite(yawDeg) || !isFinite(pitchDeg) || !isFinite(rollDeg)) {
+        setSolveMuted();
+        return;
+    }
+
+    setSolveValues(hfovDeg, equivMm, yawDeg, yawCardinal, pitchDeg, rollDeg, fPx);
+}
+        </code>
+    </details>
+
+    <p>
+        The horizon line's slope directly gives the camera roll via <code>currentHorizonAngleRadians()</code>.
+    </p>
+     <details>
+        <summary>click to toggle code snippet</summary>
+        <code>
+function currentHorizonAngleRadians() {
+    if (horizonP0 === null || horizonP1 === null) return 0.0;
+    return Math.atan2(horizonP1.y - horizonP0.y, horizonP1.x - horizonP0.x);
+}
+        </code>
+    </details>
+
+    <p>
+        Before any geometry is solved, we need to rotate the image-space points around the image centre using <code>rotatePointAround()</code> so that the horizon is actually
+        horizontal. (This is independent of whether the user presses the "Rotate to match horizon" button to <em>see</em> the rotation.)
+    </p>
+     <details>
+        <summary>click to toggle code snippet</summary>
+        <code>
+function rotatePointAround(p, cx, cy, angleRad) {
+    var x = p.x - cx;
+    var y = p.y - cy;
+    var c = Math.cos(angleRad);
+    var s = Math.sin(angleRad);
+    return { x: cx + x * c - y * s, y: cy + x * s + y * c };
+}
+        </code>
+    </details>
+
+    <p>
+        Then we can compute the true bearing from the camera to points A and B, using <code>bearingRadians</code>.
+        The horizontal pixel offsets of A and B from the image center correspond to angular offsets from the camera’s forward direction:
+        <code>atan2(x, f)</code>, where <em>f</em> is the focal length in pixels. The unknown is <em>f</em>, which
+        the code solves for numerically with a binary search loop inside <code>solveCameraIfReady()</code>; it adjusts <em>f</em> until the angular difference between A and B
+        in image space matches the real-world bearing difference (<code>deltaBearing</code>). This is what lets us tie map geometry to image geometry.
+    </p>
+     <details>
+        <summary>click to toggle code snippet</summary>
+        <code>
+function bearingRadians(lat1Deg, lon1Deg, lat2Deg, lon2Deg) {
+    var lat1 = lat1Deg * Math.PI / 180.0;
+    var lon1 = lon1Deg * Math.PI / 180.0;
+    var lat2 = lat2Deg * Math.PI / 180.0;
+    var lon2 = lon2Deg * Math.PI / 180.0;
+
+    var dLon = lon2 - lon1;
+    var y = Math.sin(dLon) * Math.cos(lat2);
+    var x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    return Math.atan2(y, x);
+}
+        </code>
+    </details>
+
+    <p>
+        The remaining parameters are now simple to compute directly.
+    </p>
+    <ul>
+        <li>Yaw is computed by aligning the image ray to point A with the real bearing to A.</li>
+         <details>
+            <summary>click to toggle code snippet</summary>
+            <code>
+var yaw = wrapPi(bearingA - alphaA);
+            </code>
+        </details>
+        <li>Pitch comes from how far the horizon sits above or below the image center.</li>
+         <details>
+            <summary>click to toggle code snippet</summary>
+            <code>
+var pitch = -Math.atan2((cy - yH), fPx);
+            </code>
+        </details>
+        <li>The horizontal field of view is <code>2 * atan((imageWidth / 2) / f)</code>.</li>
+        <li>The "full-frame equivalent" is mainly for my benefit, and is a standard conversion assuming a 36mm sensor width.</li>
+         <details>
+            <summary>click to toggle code snippet</summary>
+            <code>
+var equivMm = 36.0 / (2.0 * Math.tan(hfov * 0.5));
+            </code>
+        </details>
+    </ul>
+    <p>
+        All formatting and display happens in <code>setSolveValues()</code>.
+        <code>updateMapGeometry()</code> mirrors the same computations to draw the FOV wedge on the Leaflet map.
+    </p>
+
+    <p>
+        For interactivity, ChatGPT was quite good at producing <em>working</em> JavaScript code (no comment on style or complexity). It was a big help here.
+        I was initially embedding a Google Maps view as an iframe (shockingly simple!), but you can't place points and overlays on the map without setting up the full Maps API.
+        I didn't want to be responsible for an API key and managing limited/paid credits, nor make the user input an API key, so ChatGPT steered me to the excellent
+        <a href="https://leafletjs.com/">Leaflet library</a>, which is open-source, uses OpenStreetMap, and does not require special setup. It's perfect for a low-traffic public project
+        like this.
+    </p>
+    <p>
+        Leaflet is the only library used in this project. The rest is vanilla JavaScript logic, which ChatGPT helped me finagle. I'm inexperienced with both JavaScript and
+        camera calibration, so this was a great help.
+    </p>
+
+    <h2>Example</h2>
+
+    <p>
+        Let's look at an image I took in Hunters Point on the shore of the East River in Queens. I know what my exact location was, and just as importantly, the camera I used:
+        an iPhone main camera, whose full-frame equivalent focal length is 24mm, according to Apple. I like to shoot in RAW format and apply my own edits, <strong>but</strong>
+        I left the crop and rotation alone and disabled lens corrections. The framing is straight out-of-camera.
+    </p>
+    <img src="./new_york.jpg" class="chat">
+
+    <p>
+        I used the click-and-drag-while-holding-shift functionality to set down a horizon line. Then, for each point, I clicked "Pick on image", and selected the very tips of the
+        Empire State Building and the Chrysler Building, respectively (elliptical outlines added on top of screenshot for clarity).
+    </p>
+    <img src="./screenshot_marked.jpg" class="chat">
+
+    <p>
+        Sidenote: beyond a certain zoom level, I have the web app's image filtering switch to nearest (instead of linear), to distinguish individual pixels. In this case, this helped me select the
+        spire of the Chrysler building. Requiring shift to be held down to place the point also means that image panning and zooming still work, and won't be triggered accidentally.
+    </p>
+    <img src="./screenshot_nearest.jpg" class="chat" style="width: 40%;">
+
+    <p>
+        Finally, finding the centres of both buildings on the map is simple enough.
+    </p>
+    <div class="chat" style="display: flex; width: 100%;">
+        <img src="./screenshot_map_empire.jpg" style="width: 50%;">
+        <img src="./screenshot_map_chrysler.jpg" style="width: 50%;">
+    </div>
+
+    <p>Now we have a solution!</p>
+    <img src="./screenshot_solution.jpg" class="chat">
+
+    <p>
+        I am indeed (1) looking north-west, (2) angled slightly upwards, and (3) shooting with a full-frame-equivalent focal length of 24mm (the computation is 24.91mm, off by 0.91mm).
+        Success! We can even look at the black frame-edge lines on the map to confirm that the left edge indeed catches the northernmost building of NYU Langone Medical Center...
+    </p>
+    <div class="chat" style="display: flex; width: 100%;">
+        <img src="./screenshot_left_map.jpg" style="width: 50%;">
+        <img src="./screenshot_left_image.jpg" style="width: 50%;">
+    </div>
+    <p>
+        ...and the right edge cuts off the pier in Hunters Point!
+    </p>
+    <div class="chat" style="display: flex; width: 100%;">
+        <img src="./screenshot_right_map.jpg" style="width: 50%;">
+        <img src="./screenshot_right_image.jpg" style="width: 50%;">
+    </div>
+
+    </main>
+</body>
+</html>
