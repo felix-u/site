@@ -324,6 +324,10 @@
         var labelA = null;
         var labelB = null;
 
+        var fovArc = null;
+        var fovLabel = null;
+        var triFill = null;
+
         var cameraMarker = L.marker([43.0731, -89.4012], { draggable: true }).addTo(map);
         var pointAMarker = L.marker([43.0820, -89.4000], { draggable: true }).addTo(map);
         var pointBMarker = L.marker([43.0650, -89.3900], { draggable: true }).addTo(map);
@@ -333,6 +337,14 @@
 
         fovLeft = L.polyline([], { color: "#000", weight: 2, opacity: 0.9 }).addTo(map);
         fovRight = L.polyline([], { color: "#000", weight: 2, opacity: 0.9 }).addTo(map);
+
+        fovArc = L.polyline([], { color: "#000", weight: 2, opacity: 0.9 }).addTo(map);
+
+        fovLabel = L.marker(cameraMarker.getLatLng(), { interactive: false, opacity: 0.0 })
+            .addTo(map)
+            .bindTooltip("", { permanent: true, direction: "right", offset: [10, 0] });
+
+        triFill = L.polygon([], { stroke: false, fill: true, fillColor: "#00aa00", fillOpacity: 0.15 }).addTo(map);
 
         labelCamera = L.marker(cameraMarker.getLatLng(), { interactive: false, opacity: 0.0 })
             .addTo(map)
@@ -495,6 +507,24 @@
             if (x < lo) return lo;
             if (x > hi) return hi;
             return x;
+        }
+
+        function haversineMeters(a, b) {
+            var R = 6371000.0;
+
+            var lat1 = deg2rad(a.lat);
+            var lon1 = deg2rad(a.lng);
+            var lat2 = deg2rad(b.lat);
+            var lon2 = deg2rad(b.lng);
+
+            var dLat = lat2 - lat1;
+            var dLon = lon2 - lon1;
+
+            var s1 = Math.sin(dLat * 0.5);
+            var s2 = Math.sin(dLon * 0.5);
+
+            var h = s1 * s1 + Math.cos(lat1) * Math.cos(lat2) * s2 * s2;
+            return 2.0 * R * Math.asin(Math.min(1.0, Math.sqrt(h)));
         }
 
         function bearingRadians(lat1Deg, lon1Deg, lat2Deg, lon2Deg) {
@@ -762,12 +792,12 @@
             return el;
         }
 
-        function svgText(x, y, text, fill) {
+        function svgText(x, y, text, fill, sizePx) {
             var el = document.createElementNS("http://www.w3.org/2000/svg", "text");
             el.setAttribute("x", x);
             el.setAttribute("y", y);
             el.setAttribute("fill", fill);
-            el.setAttribute("font-size", "18");
+            el.setAttribute("font-size", (sizePx ? String(sizePx) : "18"));
             el.setAttribute("font-family", "system-ui, sans-serif");
             el.textContent = text;
             overlaySvg.appendChild(el);
@@ -785,12 +815,12 @@
 
             if (pointAImage !== null) {
                 svgCircle(pointAImage.x, pointAImage.y, 8, "rgba(0,200,255,0.95)", "rgba(0,0,0,0.7)", 2);
-                svgText(pointAImage.x + 12, pointAImage.y - 12, "A", "rgba(0,200,255,0.95)");
+                svgText(pointAImage.x + 12, pointAImage.y - 12, "A", "rgba(0,200,255,0.95)", 48);
             }
 
             if (pointBImage !== null) {
                 svgCircle(pointBImage.x, pointBImage.y, 8, "rgba(255,120,0,0.95)", "rgba(0,0,0,0.7)", 2);
-                svgText(pointBImage.x + 12, pointBImage.y - 12, "B", "rgba(255,120,0,0.95)");
+                svgText(pointBImage.x + 12, pointBImage.y - 12, "B", "rgba(255,120,0,0.95)", 48);
             }
 
             if (pointAImage !== null && pointBImage !== null) {
@@ -944,6 +974,8 @@
             rayToA.setLatLngs([c, a]);
             rayToB.setLatLngs([c, b]);
 
+            if (triFill) triFill.setLatLngs([c, a, b]);
+
             if (labelCamera) labelCamera.setLatLng(c);
             if (labelA) labelA.setLatLng(a);
             if (labelB) labelB.setLatLng(b);
@@ -952,12 +984,18 @@
             if (!w) {
                 fovLeft.setLatLngs([]);
                 fovRight.setLatLngs([]);
+                if (fovArc) fovArc.setLatLngs([]);
+                if (triFill) triFill.setLatLngs([]);
+                if (fovLabel) fovLabel.setTooltipContent("");
                 return;
             }
 
             if (horizonP0 === null || horizonP1 === null || pointAImage === null || pointBImage === null) {
                 fovLeft.setLatLngs([]);
                 fovRight.setLatLngs([]);
+                if (fovArc) fovArc.setLatLngs([]);
+                if (triFill) triFill.setLatLngs([]);
+                if (fovLabel) fovLabel.setTooltipContent("");
                 return;
             }
 
@@ -971,6 +1009,9 @@
             if (clat === null || clng === null || alat === null || alng === null || blat === null || blng === null) {
                 fovLeft.setLatLngs([]);
                 fovRight.setLatLngs([]);
+                if (fovArc) fovArc.setLatLngs([]);
+                if (triFill) triFill.setLatLngs([]);
+                if (fovLabel) fovLabel.setTooltipContent("");
                 return;
             }
 
@@ -998,6 +1039,9 @@
             if (Math.abs(deltaBearing) < 1e-8 || Math.abs(xA - xB) < 1e-8) {
                 fovLeft.setLatLngs([]);
                 fovRight.setLatLngs([]);
+                if (fovArc) fovArc.setLatLngs([]);
+                if (triFill) triFill.setLatLngs([]);
+                if (fovLabel) fovLabel.setTooltipContent("");
                 return;
             }
 
@@ -1023,14 +1067,53 @@
             var leftBearing = wrapPi(yaw - hfov * 0.5);
             var rightBearing = wrapPi(yaw + hfov * 0.5);
 
-            /* Just draw rays long enough to see on-screen. */
-            var lengthMeters = 3000.0;
+            var dA = haversineMeters(c, a);
+            var dB = haversineMeters(c, b);
+            var lengthMeters = (dA + dB) * 0.5;
+            if (!isFinite(lengthMeters) || lengthMeters < 50.0) lengthMeters = 1000.0;
 
             var pL = destinationLatLng(c.lat, c.lng, leftBearing, lengthMeters);
             var pR = destinationLatLng(c.lat, c.lng, rightBearing, lengthMeters);
 
             fovLeft.setLatLngs([c, { lat: pL[0], lng: pL[1] }]);
             fovRight.setLatLngs([c, { lat: pR[0], lng: pR[1] }]);
+
+            if (fovArc && fovLabel) {
+                var arcRadius = Math.min(lengthMeters * 0.25, 1500.0);
+                if (arcRadius < 200.0) arcRadius = 200.0;
+
+                var pts = [];
+                var steps = 24;
+                var t;
+                for (t = 0; t <= steps; t += 1) {
+                    var u = t / steps;
+                    var ang = wrapPi(leftBearing + wrapPi(rightBearing - leftBearing) * u);
+                    var p = destinationLatLng(c.lat, c.lng, ang, arcRadius);
+                    pts.push({ lat: p[0], lng: p[1] });
+                }
+
+                fovArc.setLatLngs(pts);
+
+                var midBearing = wrapPi(leftBearing + wrapPi(rightBearing - leftBearing) * 0.5);
+                var midP = destinationLatLng(c.lat, c.lng, midBearing, arcRadius * 1.15);
+
+                var hfovDeg = hfov * 180.0 / Math.PI;
+                fovLabel.setLatLng({ lat: midP[0], lng: midP[1] });
+                fovLabel.setTooltipContent("FOV " + hfovDeg.toFixed(2) + "°");
+            }
+        }
+
+        function selectionIsInside(node) {
+            var sel = window.getSelection ? window.getSelection() : null;
+            if (!sel || sel.rangeCount === 0) return false;
+
+            var a = sel.anchorNode;
+            var f = sel.focusNode;
+            if (!a || !f) return false;
+
+            if (node.contains(a)) return true;
+            if (node.contains(f)) return true;
+            return false;
         }
 
         function updateBottomText() {
@@ -1067,7 +1150,9 @@
                 setPointB.disabled = false;
             }
 
-            solveCameraIfReady();
+            if (!selectionIsInside(document.getElementById("bottomRight"))) {
+                solveCameraIfReady();
+            }
             updateMapGeometry();
         }
 
