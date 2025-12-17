@@ -272,19 +272,19 @@
         "use strict";
 
         var DEFAULTS = {
-            imageUrl: "https://metobs.ssec.wisc.edu/pub/cache/aoss/cameras/northwest/latest_orig.jpg",
+            imageUrl: "./calibrator/new_york.jpg",
 
-            mapCenter: { lat: 43.0731, lng: -89.4012 },
+            mapCenter: { lat: 40.740837944570885, lng: -73.96103830129033 },
             mapZoom: 12,
 
-            camera: { lat: 43.071380001549976, lng: -89.40870550508414 },
-            pointA:  { lat: 43.1822150831861, lng: -89.33969781673095 },
-            pointB:  { lat: 43.09359399465433, lng: -89.2244891721033 },
+            camera: { lat: 40.740837944570885, lng: -73.96103830129033 },
+            pointA:  { lat: 40.7484415664, lng: -73.9856591631 },
+            pointB:  { lat: 40.7516256802, lng: -73.9753890057 },
 
-            horizonP0: null, /* { x: 100, y: 500 } */
-            horizonP1: null, /* { x: 1500, y: 520 } */
-            imageA: null,    /* { x: 300, y: 510 } */
-            imageB: null     /* { x: 1200, y: 515 } */
+            horizonP0: { x: 490, y: 716 },
+            horizonP1: { x: 1414, y: 734 },
+            imageA: { x: 314, y: 713 },
+            imageB: { x: 746, y: 721 },
         };
 
         var PIXELATED_ZOOM_THRESHOLD = 8.0;
