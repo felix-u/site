@@ -76,7 +76,7 @@
         }
 
         #mapWrap { position: relative; flex: 1; overflow: hidden; }
-        #mapFrame { width: 100%; height: 100%; border: 0; display: block; }
+        #map { position: absolute; inset: 0; }
 
         #bottomPanel {
             display: flex;
@@ -113,7 +113,14 @@
         .rightTitle { font-weight: 600; }
         .muted { color: #8a8a8a; }
         .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
     </style>
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    />
 </head>
 
 <body>
@@ -144,17 +151,12 @@
 
         <div id="rightPane" class="pane">
             <div class="toolbar">
-                <input id="mapQuery" type="text" spellcheck="false" placeholder="Search Google Maps..." />
+                <input id="mapQuery" type="text" spellcheck="false" placeholder="Latitude, longitude" />
                 <button id="searchMap">Search</button>
             </div>
 
             <div id="mapWrap">
-                <iframe
-                    id="mapFrame"
-                    loading="lazy"
-                    referrerpolicy="no-referrer-when-downgrade"
-                    src="https://www.google.com/maps?q=Madison%2C%20WI&z=4&output=embed">
-                </iframe>
+                <div id="map"></div>
             </div>
         </div>
 
@@ -184,6 +186,7 @@
                     <span id="cameraGps" class="value">unset</span>
                     <input id="cameraLat" class="smallInput" type="text" placeholder="lat" />
                     <input id="cameraLng" class="smallInput" type="text" placeholder="lng" />
+                    <button id="pickCameraOnMap" class="smallButton">Pick camera on map</button>
                 </div>
             </div>
 
@@ -194,6 +197,7 @@
                     <input id="pointALat" class="smallInput" type="text" placeholder="A lat" />
                     <input id="pointALng" class="smallInput" type="text" placeholder="A lng" />
                     <button id="setPointA" class="smallButton">Pick A on image</button>
+                    <button id="pickPointAOnMap" class="smallButton">Pick A on map</button>
                 </div>
             </div>
 
@@ -204,6 +208,7 @@
                     <input id="pointBLat" class="smallInput" type="text" placeholder="B lat" />
                     <input id="pointBLng" class="smallInput" type="text" placeholder="B lng" />
                     <button id="setPointB" class="smallButton">Pick B on image</button>
+                    <button id="pickPointBOnMap" class="smallButton">Pick B on map</button>
                 </div>
             </div>
 
@@ -237,6 +242,11 @@
 
     </div>
 
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin="">
+    </script>
     <script>
         "use strict";
 
@@ -258,7 +268,6 @@
 
         var rotateButton = document.getElementById("rotateButton");
 
-        var mapFrame = document.getElementById("mapFrame");
         var mapQuery = document.getElementById("mapQuery");
         var searchMap = document.getElementById("searchMap");
 
@@ -287,22 +296,98 @@
         var solveOri = document.getElementById("solveOri");
         var solveDetail = document.getElementById("solveDetail");
 
+        var pickCameraOnMap = document.getElementById("pickCameraOnMap");
+        var pickPointAOnMap = document.getElementById("pickPointAOnMap");
+        var pickPointBOnMap = document.getElementById("pickPointBOnMap");
+
+        var map = L.map("map", {
+            zoomControl: true,
+            attributionControl: true
+        });
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        var initialCenter = [43.0731, -89.4012];
+        var initialZoom = 12;
+
+        map.setView(initialCenter, initialZoom);
+
+        var rayToA = null;
+        var rayToB = null;
+        var fovLeft = null;
+        var fovRight = null;
+
+        var labelCamera = null;
+        var labelA = null;
+        var labelB = null;
+
+        var cameraMarker = L.marker([43.0731, -89.4012], { draggable: true }).addTo(map);
+        var pointAMarker = L.marker([43.0820, -89.4000], { draggable: true }).addTo(map);
+        var pointBMarker = L.marker([43.0650, -89.3900], { draggable: true }).addTo(map);
+
+        rayToA = L.polyline([], { color: "#000", weight: 2, opacity: 0.9 }).addTo(map);
+        rayToB = L.polyline([], { color: "#000", weight: 2, opacity: 0.9 }).addTo(map);
+
+        fovLeft = L.polyline([], { color: "#000", weight: 2, opacity: 0.9 }).addTo(map);
+        fovRight = L.polyline([], { color: "#000", weight: 2, opacity: 0.9 }).addTo(map);
+
+        labelCamera = L.marker(cameraMarker.getLatLng(), { interactive: false, opacity: 0.0 })
+            .addTo(map)
+            .bindTooltip("Camera", { permanent: true, direction: "right", offset: [10, 0] });
+
+        labelA = L.marker(pointAMarker.getLatLng(), { interactive: false, opacity: 0.0 })
+            .addTo(map)
+            .bindTooltip("Point 1", { permanent: true, direction: "right", offset: [10, 0] });
+
+        labelB = L.marker(pointBMarker.getLatLng(), { interactive: false, opacity: 0.0 })
+            .addTo(map)
+            .bindTooltip("Point 2", { permanent: true, direction: "right", offset: [10, 0] });
+
+        cameraMarker.bindTooltip("Camera", { permanent: true, direction: "top", offset: [0, -10] });
+        pointAMarker.bindTooltip("A", { permanent: true, direction: "top", offset: [0, -10] });
+        pointBMarker.bindTooltip("B", { permanent: true, direction: "top", offset: [0, -10] });
+
+        setLatLngInputs(cameraLat, cameraLng, 43.0731, -89.4012);
+        setLatLngInputs(pointALat, pointALng, 43.0820, -89.4000);
+        setLatLngInputs(pointBLat, pointBLng, 43.0650, -89.3900);
+
+        cameraMarker.on("drag", function () {
+            var ll = cameraMarker.getLatLng();
+            setLatLngInputs(cameraLat, cameraLng, ll.lat, ll.lng);
+            updateBottomText();
+        });
+
+        pointAMarker.on("drag", function () {
+            var ll = pointAMarker.getLatLng();
+            setLatLngInputs(pointALat, pointALng, ll.lat, ll.lng);
+            updateBottomText();
+        });
+
+        pointBMarker.on("drag", function () {
+            var ll = pointBMarker.getLatLng();
+            setLatLngInputs(pointBLat, pointBLng, ll.lat, ll.lng);
+            updateBottomText();
+        });
+
+        var mapPick = "none"; /* none | camera | mapA | mapB */
+
         var params = new URLSearchParams(location.search);
         var imgParam = params.get("img");
         var qParam = params.get("q");
 
         if (imgParam) leftImage.src = imgParam;
-        if (qParam) mapFrame.src = "https://www.google.com/maps?q=" + encodeURIComponent(qParam) + "&z=4&output=embed";
 
         imageUrl.value = leftImage.currentSrc || leftImage.src;
-        mapQuery.value = qParam || "Madison, WI";
+        mapQuery.value = qParam || "";
 
         var dividerDragging = false;
 
         divider.addEventListener("mousedown", function (e) {
             dividerDragging = true;
             document.body.style.userSelect = "none";
-            mapFrame.style.pointerEvents = "none";
             e.preventDefault();
         });
 
@@ -325,13 +410,17 @@
         window.addEventListener("mouseup", function () {
             dividerDragging = false;
             document.body.style.userSelect = "";
-            mapFrame.style.pointerEvents = "";
         });
 
         function setMapQuery(q) {
-            var url = "https://www.google.com/maps?q=" + encodeURIComponent(q) + "&z=4&output=embed";
-            mapFrame.src = url;
-            mapQuery.value = q;
+            var m = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
+            if (!m) return;
+
+            var lat = parseFloat(m[1]);
+            var lng = parseFloat(m[2]);
+            if (!isFinite(lat) || !isFinite(lng)) return;
+
+            map.setView([lat, lng], Math.max(map.getZoom(), 14));
         }
 
         searchMap.addEventListener("click", function () {
@@ -347,6 +436,33 @@
             }
         });
 
+        function deg2rad(d) { return d * Math.PI / 180.0; }
+        function rad2deg(r) { return r * 180.0 / Math.PI; }
+
+        function destinationLatLng(latDeg, lngDeg, bearingRad, distanceMeters) {
+            var R = 6371000.0;
+
+            var lat1 = deg2rad(latDeg);
+            var lon1 = deg2rad(lngDeg);
+
+            var dr = distanceMeters / R;
+
+            var sinLat1 = Math.sin(lat1);
+            var cosLat1 = Math.cos(lat1);
+
+            var sinDr = Math.sin(dr);
+            var cosDr = Math.cos(dr);
+
+            var sinLat2 = sinLat1 * cosDr + cosLat1 * sinDr * Math.cos(bearingRad);
+            var lat2 = Math.asin(sinLat2);
+
+            var y = Math.sin(bearingRad) * sinDr * cosLat1;
+            var x = cosDr - sinLat1 * sinLat2;
+            var lon2 = lon1 + Math.atan2(y, x);
+
+            return [rad2deg(lat2), rad2deg(lon2)];
+        }
+
         function fmtNum(x, digits) {
             if (typeof x !== "number" || !isFinite(x)) return "unset";
             return x.toFixed(digits);
@@ -355,6 +471,11 @@
         function fmtDeg(rad, digits) {
             if (typeof rad !== "number" || !isFinite(rad)) return "unset";
             return (rad * 180.0 / Math.PI).toFixed(digits) + "°";
+        }
+
+        function setLatLngInputs(latInput, lngInput, lat, lng) {
+            latInput.value = lat.toFixed(10);
+            lngInput.value = lng.toFixed(10);
         }
 
         function parseMaybeFloat(s) {
@@ -812,9 +933,111 @@
             setSolveValues(hfovDeg, equivMm, yawDeg, yawCardinal, pitchDeg, rollDeg, fPx);
         }
 
+        function updateMapGeometry() {
+            if (!cameraMarker || !pointAMarker || !pointBMarker) return;
+            if (!rayToA || !rayToB || !fovLeft || !fovRight) return;
+
+            var c = cameraMarker.getLatLng();
+            var a = pointAMarker.getLatLng();
+            var b = pointBMarker.getLatLng();
+
+            rayToA.setLatLngs([c, a]);
+            rayToB.setLatLngs([c, b]);
+
+            if (labelCamera) labelCamera.setLatLng(c);
+            if (labelA) labelA.setLatLng(a);
+            if (labelB) labelB.setLatLng(b);
+
+            var w = leftImage.naturalWidth || 0;
+            if (!w) {
+                fovLeft.setLatLngs([]);
+                fovRight.setLatLngs([]);
+                return;
+            }
+
+            if (horizonP0 === null || horizonP1 === null || pointAImage === null || pointBImage === null) {
+                fovLeft.setLatLngs([]);
+                fovRight.setLatLngs([]);
+                return;
+            }
+
+            var clat = parseMaybeFloat(cameraLat.value);
+            var clng = parseMaybeFloat(cameraLng.value);
+            var alat = parseMaybeFloat(pointALat.value);
+            var alng = parseMaybeFloat(pointALng.value);
+            var blat = parseMaybeFloat(pointBLat.value);
+            var blng = parseMaybeFloat(pointBLng.value);
+
+            if (clat === null || clng === null || alat === null || alng === null || blat === null || blng === null) {
+                fovLeft.setLatLngs([]);
+                fovRight.setLatLngs([]);
+                return;
+            }
+
+            /* Recompute yaw + hfov exactly the same way as solveCameraIfReady() does. */
+            var wImg = leftImage.naturalWidth || 0;
+            var hImg = leftImage.naturalHeight || 0;
+            if (!wImg || !hImg) return;
+
+            var roll = currentHorizonAngleRadians();
+            var cx = wImg * 0.5;
+            var cy = hImg * 0.5;
+
+            var rot = -roll;
+            var ar = rotatePointAround(pointAImage, cx, cy, rot);
+            var br = rotatePointAround(pointBImage, cx, cy, rot);
+
+            var bearingA = bearingRadians(clat, clng, alat, alng);
+            var bearingB = bearingRadians(clat, clng, blat, blng);
+
+            var deltaBearing = wrapPi(bearingB - bearingA);
+
+            var xA = ar.x - cx;
+            var xB = br.x - cx;
+
+            if (Math.abs(deltaBearing) < 1e-8 || Math.abs(xA - xB) < 1e-8) {
+                fovLeft.setLatLngs([]);
+                fovRight.setLatLngs([]);
+                return;
+            }
+
+            var fLo = 1.0;
+            var fHi = 100000.0;
+            var i;
+            for (i = 0; i < 80; i += 1) {
+                var f = (fLo + fHi) * 0.5;
+                var aA = Math.atan2(xA, f);
+                var aB = Math.atan2(xB, f);
+                var d = wrapPi(aB - aA);
+
+                if (d > deltaBearing) fLo = f;
+                else fHi = f;
+            }
+
+            var fPx = (fLo + fHi) * 0.5;
+            var alphaA = Math.atan2(xA, fPx);
+            var yaw = wrapPi(bearingA - alphaA);
+
+            var hfov = 2.0 * Math.atan2((wImg * 0.5), fPx);
+
+            var leftBearing = wrapPi(yaw - hfov * 0.5);
+            var rightBearing = wrapPi(yaw + hfov * 0.5);
+
+            /* Just draw rays long enough to see on-screen. */
+            var lengthMeters = 3000.0;
+
+            var pL = destinationLatLng(c.lat, c.lng, leftBearing, lengthMeters);
+            var pR = destinationLatLng(c.lat, c.lng, rightBearing, lengthMeters);
+
+            fovLeft.setLatLngs([c, { lat: pL[0], lng: pL[1] }]);
+            fovRight.setLatLngs([c, { lat: pR[0], lng: pR[1] }]);
+        }
+
         function updateBottomText() {
             var clat = parseMaybeFloat(cameraLat.value);
             var clng = parseMaybeFloat(cameraLng.value);
+            if (clat !== null && clng !== null && cameraMarker) cameraMarker.setLatLng([clat, clng]);
+
             if (clat === null || clng === null) {
                 cameraGps.textContent = "unset";
             } else {
@@ -825,6 +1048,8 @@
             var alng = parseMaybeFloat(pointALng.value);
             var blat = parseMaybeFloat(pointBLat.value);
             var blng = parseMaybeFloat(pointBLng.value);
+            if (alat !== null && alng !== null && pointAMarker) pointAMarker.setLatLng([alat, alng]);
+            if (blat !== null && blng !== null && pointBMarker) pointBMarker.setLatLng([blat, blng]);
 
             pointAStatus.textContent = (pointAImage !== null ? "image set" : "image unset") + " / " + ((alat !== null && alng !== null) ? "map set" : "map unset");
             pointBStatus.textContent = (pointBImage !== null ? "image set" : "image unset") + " / " + ((blat !== null && blng !== null) ? "map set" : "map unset");
@@ -843,6 +1068,7 @@
             }
 
             solveCameraIfReady();
+            updateMapGeometry();
         }
 
         cameraLat.addEventListener("input", updateBottomText);
@@ -851,6 +1077,39 @@
         pointALng.addEventListener("input", updateBottomText);
         pointBLat.addEventListener("input", updateBottomText);
         pointBLng.addEventListener("input", updateBottomText);
+
+        pickCameraOnMap.addEventListener("click", function () { mapPick = "camera"; });
+        pickPointAOnMap.addEventListener("click", function () { mapPick = "mapA"; });
+        pickPointBOnMap.addEventListener("click", function () { mapPick = "mapB"; });
+
+        map.on("click", function (e) {
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+
+            if (mapPick === "camera") {
+                setLatLngInputs(cameraLat, cameraLng, lat, lng);
+                cameraMarker.setLatLng([lat, lng]);
+                mapPick = "none";
+                updateBottomText();
+                return;
+            }
+
+            if (mapPick === "mapA") {
+                setLatLngInputs(pointALat, pointALng, lat, lng);
+                pointAMarker.setLatLng([lat, lng]);
+                mapPick = "none";
+                updateBottomText();
+                return;
+            }
+
+            if (mapPick === "mapB") {
+                setLatLngInputs(pointBLat, pointBLng, lat, lng);
+                pointBMarker.setLatLng([lat, lng]);
+                mapPick = "none";
+                updateBottomText();
+                return;
+            }
+        });
 
         clearHorizon.addEventListener("click", function () {
             horizonP0 = null;
