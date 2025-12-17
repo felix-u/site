@@ -85,11 +85,24 @@
             border-top: 1px solid #ddd;
             background: #f7f7f7;
             font-size: 13px;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
         }
 
-        #bottomLeft { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-        #bottomRight { width: 360px; display: flex; flex-direction: column; gap: 8px; }
+        #bottomLeft {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #bottomRight {
+            flex: 1 1 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: max-content;
+        }
 
         .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
         .block { display: flex; gap: 8px; align-items: center; }
@@ -130,13 +143,13 @@
         <div id="leftPane" class="pane">
             <div class="toolbar">
                 <input id="imageUrl" type="text" spellcheck="false" />
-                <button id="loadImage">Load</button>
+                <button id="loadImage">Load image from URL</button>
                 <div id="imageError" class="error"></div>
             </div>
 
             <div id="imageViewport">
                 <div id="imageLayer">
-                    <img id="leftImage" alt="Left image" src="https://placehold.co/1600x900?text=Image" />
+                    <img id="leftImage" alt="Left image"/>
                     <svg id="overlaySvg"></svg>
                 </div>
 
@@ -152,7 +165,7 @@
         <div id="rightPane" class="pane">
             <div class="toolbar">
                 <input id="mapQuery" type="text" spellcheck="false" placeholder="Latitude, longitude" />
-                <button id="searchMap">Search</button>
+                <button id="searchMap">Go to</button>
             </div>
 
             <div id="mapWrap">
@@ -192,23 +205,27 @@
 
             <div class="row">
                 <div class="block">
-                    <span class="label">Horizon point A:</span>
+                    <span class="label">Point A:</span>
                     <span id="pointAStatus" class="value">unset</span>
                     <input id="pointALat" class="smallInput" type="text" placeholder="A lat" />
                     <input id="pointALng" class="smallInput" type="text" placeholder="A lng" />
-                    <button id="setPointA" class="smallButton">Pick A on image</button>
-                    <button id="pickPointAOnMap" class="smallButton">Pick A on map</button>
+                    <button id="pickPointAOnMap" class="smallButton">Pick on map</button>
+                    <span class="label">img:</span>
+                    <span id="pointAImgXY" class="value">unset</span>
+                    <button id="setPointA" class="smallButton">Pick on image</button>
                 </div>
             </div>
 
             <div class="row">
                 <div class="block">
-                    <span class="label">Horizon point B:</span>
+                    <span class="label">Point B:</span>
                     <span id="pointBStatus" class="value">unset</span>
                     <input id="pointBLat" class="smallInput" type="text" placeholder="B lat" />
                     <input id="pointBLng" class="smallInput" type="text" placeholder="B lng" />
-                    <button id="setPointB" class="smallButton">Pick B on image</button>
-                    <button id="pickPointBOnMap" class="smallButton">Pick B on map</button>
+                    <button id="pickPointBOnMap" class="smallButton">Pick on map</button>
+                    <span class="label">img:</span>
+                    <span id="pointBImgXY" class="value">unset</span>
+                    <button id="setPointB" class="smallButton">Pick on image</button>
                 </div>
             </div>
 
@@ -216,7 +233,11 @@
 
         <div id="bottomRight">
             <div class="rightCard">
-                <div class="rightTitle">Camera solve</div>
+                <div class="rightTitle">Camera solution</div>
+
+                <div id="pausedNotice" class="muted" style="display:none; font-weight:700; background:#fff3cd; border:1px solid #ffeeba; padding:6px 8px; border-radius:6px;">
+                    Text update paused under active selection (click somewhere else to resume)
+                </div>
 
                 <div class="block">
                     <span class="label">Camera FOV:</span>
@@ -250,8 +271,26 @@
     <script>
         "use strict";
 
+        var DEFAULTS = {
+            imageUrl: "https://metobs.ssec.wisc.edu/pub/cache/aoss/cameras/northwest/latest_orig.jpg",
+
+            mapCenter: { lat: 43.0731, lng: -89.4012 },
+            mapZoom: 12,
+
+            camera: { lat: 43.071380001549976, lng: -89.40870550508414 },
+            pointA:  { lat: 43.1822150831861, lng: -89.33969781673095 },
+            pointB:  { lat: 43.09359399465433, lng: -89.2244891721033 },
+
+            horizonP0: null, /* { x: 100, y: 500 } */
+            horizonP1: null, /* { x: 1500, y: 520 } */
+            imageA: null,    /* { x: 300, y: 510 } */
+            imageB: null     /* { x: 1200, y: 515 } */
+        };
+
         var PIXELATED_ZOOM_THRESHOLD = 8.0;
         var IMAGE_LOAD_TIMEOUT_MS = 8000;
+
+        var pausedNotice = document.getElementById("pausedNotice");
 
         var leftPane = document.getElementById("leftPane");
         var rightPane = document.getElementById("rightPane");
@@ -291,6 +330,9 @@
         var pointBLng = document.getElementById("pointBLng");
         var setPointB = document.getElementById("setPointB");
 
+        var pointAImgXY = document.getElementById("pointAImgXY");
+        var pointBImgXY = document.getElementById("pointBImgXY");
+
         var solveFov = document.getElementById("solveFov");
         var solveFf = document.getElementById("solveFf");
         var solveOri = document.getElementById("solveOri");
@@ -310,27 +352,20 @@
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        var initialCenter = [43.0731, -89.4012];
-        var initialZoom = 12;
-
-        map.setView(initialCenter, initialZoom);
+        map.setView([DEFAULTS.mapCenter.lat, DEFAULTS.mapCenter.lng], DEFAULTS.mapZoom);
 
         var rayToA = null;
         var rayToB = null;
         var fovLeft = null;
         var fovRight = null;
 
-        var labelCamera = null;
-        var labelA = null;
-        var labelB = null;
-
         var fovArc = null;
         var fovLabel = null;
         var triFill = null;
 
-        var cameraMarker = L.marker([43.0731, -89.4012], { draggable: true }).addTo(map);
-        var pointAMarker = L.marker([43.0820, -89.4000], { draggable: true }).addTo(map);
-        var pointBMarker = L.marker([43.0650, -89.3900], { draggable: true }).addTo(map);
+        var cameraMarker = L.marker([DEFAULTS.camera.lat, DEFAULTS.camera.lng], { draggable: true }).addTo(map);
+        var pointAMarker = L.marker([DEFAULTS.pointA.lat, DEFAULTS.pointA.lng], { draggable: true }).addTo(map);
+        var pointBMarker = L.marker([DEFAULTS.pointB.lat, DEFAULTS.pointB.lng], { draggable: true }).addTo(map);
 
         rayToA = L.polyline([], { color: "#000", weight: 2, opacity: 0.9 }).addTo(map);
         rayToB = L.polyline([], { color: "#000", weight: 2, opacity: 0.9 }).addTo(map);
@@ -346,25 +381,13 @@
 
         triFill = L.polygon([], { stroke: false, fill: true, fillColor: "#00aa00", fillOpacity: 0.15 }).addTo(map);
 
-        labelCamera = L.marker(cameraMarker.getLatLng(), { interactive: false, opacity: 0.0 })
-            .addTo(map)
-            .bindTooltip("Camera", { permanent: true, direction: "right", offset: [10, 0] });
-
-        labelA = L.marker(pointAMarker.getLatLng(), { interactive: false, opacity: 0.0 })
-            .addTo(map)
-            .bindTooltip("Point 1", { permanent: true, direction: "right", offset: [10, 0] });
-
-        labelB = L.marker(pointBMarker.getLatLng(), { interactive: false, opacity: 0.0 })
-            .addTo(map)
-            .bindTooltip("Point 2", { permanent: true, direction: "right", offset: [10, 0] });
-
         cameraMarker.bindTooltip("Camera", { permanent: true, direction: "top", offset: [0, -10] });
         pointAMarker.bindTooltip("A", { permanent: true, direction: "top", offset: [0, -10] });
         pointBMarker.bindTooltip("B", { permanent: true, direction: "top", offset: [0, -10] });
 
-        setLatLngInputs(cameraLat, cameraLng, 43.0731, -89.4012);
-        setLatLngInputs(pointALat, pointALng, 43.0820, -89.4000);
-        setLatLngInputs(pointBLat, pointBLng, 43.0650, -89.3900);
+        setLatLngInputs(cameraLat, cameraLng, DEFAULTS.camera.lat, DEFAULTS.camera.lng);
+        setLatLngInputs(pointALat, pointALng, DEFAULTS.pointA.lat, DEFAULTS.pointA.lng);
+        setLatLngInputs(pointBLat, pointBLng, DEFAULTS.pointB.lat, DEFAULTS.pointB.lng);
 
         cameraMarker.on("drag", function () {
             var ll = cameraMarker.getLatLng();
@@ -394,6 +417,9 @@
 
         imageUrl.value = leftImage.currentSrc || leftImage.src;
         mapQuery.value = qParam || "";
+
+        leftImage.src = (imgParam ? imgParam : DEFAULTS.imageUrl);
+        imageUrl.value = leftImage.src;
 
         var dividerDragging = false;
 
@@ -552,15 +578,18 @@
         var panStartOffsetY = 0.0;
 
         var tool = "none"; /* none | pointA | pointB */
-        var horizonP0 = null;
-        var horizonP1 = null;
+
+        var horizonP0 = DEFAULTS.horizonP0 ? { x: DEFAULTS.horizonP0.x, y: DEFAULTS.horizonP0.y } : null;
+        var horizonP1 = DEFAULTS.horizonP1 ? { x: DEFAULTS.horizonP1.x, y: DEFAULTS.horizonP1.y } : null;
 
         var placingHorizon = false;
         var editingHorizon = false;
         var editWhich = -1;
 
-        var pointAImage = null;
-        var pointBImage = null;
+        var pointAImage = DEFAULTS.imageA ? { x: DEFAULTS.imageA.x, y: DEFAULTS.imageA.y } : null;
+        var pointBImage = DEFAULTS.imageB ? { x: DEFAULTS.imageB.x, y: DEFAULTS.imageB.y } : null;
+
+        ensurePointsOnHorizon();
 
         var previewPoint = null;
         var previewText = "";
@@ -976,10 +1005,6 @@
 
             if (triFill) triFill.setLatLngs([c, a, b]);
 
-            if (labelCamera) labelCamera.setLatLng(c);
-            if (labelA) labelA.setLatLng(a);
-            if (labelB) labelB.setLatLng(b);
-
             var w = leftImage.naturalWidth || 0;
             if (!w) {
                 fovLeft.setLatLngs([]);
@@ -1150,9 +1175,25 @@
                 setPointB.disabled = false;
             }
 
-            if (!selectionIsInside(document.getElementById("bottomRight"))) {
-                solveCameraIfReady();
+            if (pointAImgXY) {
+                if (pointAImage !== null) {
+                    pointAImgXY.textContent = "(" + Math.round(pointAImage.x) + ", " + Math.round(pointAImage.y) + ") px";
+                } else {
+                    pointAImgXY.textContent = "unset";
+                }
             }
+
+            if (pointBImgXY) {
+                if (pointBImage !== null) {
+                    pointBImgXY.textContent = "(" + Math.round(pointBImage.x) + ", " + Math.round(pointBImage.y) + ") px";
+                } else {
+                    pointBImgXY.textContent = "unset";
+                }
+            }
+
+            var paused = selectionIsInside(document.getElementById("bottomRight"));
+            if (pausedNotice) pausedNotice.style.display = paused ? "block" : "none";
+            if (!paused) solveCameraIfReady();
             updateMapGeometry();
         }
 
